@@ -1,0 +1,34 @@
+{
+  "name": "verify-medium",
+  "task": "verify",
+  "risk": "medium",
+  "description": "Verification-only request for an existing change or PR.",
+  "spec": {
+    "framework": "github-spec-kit",
+    "mode": "verify",
+    "require_acceptance_criteria": false,
+    "read_existing_spec": true
+  },
+  "loop": {
+    "framework": "langgraph",
+    "runbook": "verify-loop",
+    "max_retries": 1,
+    "human_gate": "on_verify_failure",
+    "checkpoint": false
+  },
+  "verify": {
+    "framework": "semgrep",
+    "semgrep_config": "auto",
+    "severity": "warning",
+    "native_tests": true,
+    "require_build": true,
+    "require_security_scan": true
+  },
+  "memory": {
+    "framework": "mem0",
+    "local_memory": true,
+    "mem0_write": false,
+    "write_pitfalls": "if_failure_pattern",
+    "tags": ["verify", "medium-risk"]
+  }
+}

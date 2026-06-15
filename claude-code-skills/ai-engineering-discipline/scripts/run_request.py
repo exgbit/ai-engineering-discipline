@@ -83,6 +83,14 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
         source = source.expanduser().resolve()
         if not source.exists():
             raise SystemExit(f"Requirement path does not exist: {source}")
+        if source == dest_dir or source.is_relative_to(dest_dir):
+            if source.is_dir():
+                for item in sorted(source.rglob("*")):
+                    if item.is_file() and item.suffix.lower() in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}:
+                        copied.append(item)
+            else:
+                copied.append(source)
+            continue
         if source.is_dir():
             for item in sorted(source.rglob("*")):
                 if item.is_file() and item.suffix.lower() in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}:
@@ -103,6 +111,7 @@ def ensure_loop(target: Path, task: str) -> Path:
     loop_path = target / "docs" / "loops" / f"{loop_name}.md"
     if loop_path.exists():
         return loop_path
+    loop_path.parent.mkdir(parents=True, exist_ok=True)
     template = target / "docs" / "loops" / "loop-template.md"
     if template.exists():
         content = template.read_text(encoding="utf-8")

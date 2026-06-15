@@ -28,3 +28,17 @@ python scripts/run_request.py /path/to/project \
 ```
 
 This writes `docs/ai-engineering/current-request.md` with the resolved parameters.
+
+## Included Presets
+
+| Preset | Use |
+|---|---|
+| `feature-low` | Small low-risk feature |
+| `feature-medium` | Default feature work |
+| `feature-high` | Critical feature with human gates |
+| `bugfix-medium` | Default bugfix with reproduction/verification |
+| `refactor-medium` | Behavior-preserving refactor |
+| `migration-high` | High-risk migration with rollback |
+| `docs-low` | Documentation-only work |
+| `verify-medium` | PR/change verification |
+| `memory-low` | Memory organization/update |

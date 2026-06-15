@@ -185,6 +185,8 @@ task=feature risk=medium requirements=refund.md
 
 The resolved plan is written to `docs/ai-engineering/current-request.md`.
 
+For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`.
+
 ## Default Open-Source Adapter Stack
 
 The framework uses one opinionated default GitHub/open-source framework per layer:
