@@ -57,6 +57,17 @@ def command_check(target: Path, name: str) -> Check:
     return Check("fail", rel_path, "missing slash command")
 
 
+def command_content_check(target: Path, name: str, required_text: str) -> Check:
+    rel_path = f".claude/commands/{name}.md"
+    path = target / rel_path
+    if not path.is_file():
+        return Check("fail", rel_path, "missing slash command")
+    content = path.read_text(encoding="utf-8", errors="ignore")
+    if required_text in content:
+        return Check("ok", f"{rel_path} content", "current command content")
+    return Check("warn", f"{rel_path} content", f"missing expected text: {required_text}")
+
+
 def collect_checks(target: Path) -> list[Check]:
     checks = [
         Check("ok", "python", f"{sys.executable} ({sys.version.split()[0]})"),
@@ -85,6 +96,11 @@ def collect_checks(target: Path) -> list[Check]:
         command_check(target, "ai-execute"),
         command_check(target, "ai-verify"),
         command_check(target, "ai-doctor"),
+        command_content_check(target, "ai-start", "PYTHON=python3"),
+        command_content_check(target, "ai-request", "PYTHON=python3"),
+        command_content_check(target, "ai-execute", "PYTHON=python3"),
+        command_content_check(target, "ai-verify", "PYTHON=python3"),
+        command_content_check(target, "ai-doctor", "doctor-report.md"),
         file_check(target, "docs/ai-engineering/current-request.md", required=False),
         file_check(target, "docs/adapters/default-stack.md", required=False),
         file_check(target, "docs/memory/project-scan.md", required=False),
@@ -126,6 +142,7 @@ def render_report(target: Path, checks: list[Check]) -> str:
         lines.append("- No blocking installation issue detected.")
     if warnings:
         lines.append("- Warnings are usually optional context, but `current-request.md` is required before `/ai-execute` or `/ai-verify` can do useful work.")
+        lines.append("- If a command content check warns, rerun bootstrap or `init_project.py . --force` to refresh `.claude/commands`.")
     return "\n".join(lines) + "\n"
 
 
