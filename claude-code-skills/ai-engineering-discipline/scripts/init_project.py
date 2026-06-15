@@ -511,6 +511,8 @@ if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; 
 ```
 
 Read `docs/ai-engineering/execution-report.md` and the generated spec, loop, verify, and memory artifacts. If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
+
+If the command exits non-zero, still read `docs/ai-engineering/execution-report.md`; it may contain a generated blocked report with the next `/ai-request` command.
 """
 
 
@@ -534,6 +536,8 @@ if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; 
 ```
 
 Use `--fail-on-verify-failure` only when the user wants a non-zero exit after results are written. Summarize pass/fail/skipped checks, residual risk, and whether implementation or PR review can proceed.
+
+If the command exits non-zero before verification starts, read `docs/ai-engineering/execution-report.md`; it may contain a generated blocked report with the next `/ai-request` command.
 """
 
 

@@ -26,3 +26,5 @@ After running, read:
 - `docs/verify/test-matrix.md`
 
 Summarize pass/fail/skipped checks, residual risk, and whether implementation or PR review can proceed.
+
+If the command exits non-zero before verification starts, read `docs/ai-engineering/execution-report.md`; it may contain a generated blocked report with the next `/ai-request` command.

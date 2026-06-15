@@ -128,7 +128,7 @@ def target_artifact_path(target: Path, raw: str, label: str) -> Path:
 
 def parse_request(target: Path, request_path: Path) -> ManagedRequest:
     if not request_path.exists():
-        raise SystemExit(f"Managed request not found: {request_path}")
+        raise FileNotFoundError(f"Managed request not found: {request_path}")
     text = request_path.read_text(encoding="utf-8")
     task_section = extract_section(text, "Task")
     requirements_section = extract_section(text, "Requirement Sources")
@@ -144,7 +144,7 @@ def parse_request(target: Path, request_path: Path) -> ManagedRequest:
     preset = parse_bullet_value(task_section, "Preset")
     risk = parse_bullet_value(task_section, "Risk")
     if not task or not name:
-        raise SystemExit(f"Request is missing required Task fields: {request_path}")
+        raise ValueError(f"Request is missing required Task fields: {request_path}")
 
     return ManagedRequest(
         path=request_path,
@@ -808,6 +808,42 @@ def has_verify_failure(semgrep: CommandResult | None, native: list[CommandResult
     return any(item.status in {"failed", "timeout"} for item in results)
 
 
+def write_blocked_report(target: Path, request_path: Path, reason: str) -> Path:
+    report = target / "docs" / "ai-engineering" / "execution-report.md"
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    content = f"""# Execution Report: blocked
+
+Created: {now}
+
+## Request
+
+- Request: `{rel(request_path, target)}`
+- Status: `blocked`
+
+## Reason
+
+{reason}
+
+## Next Step
+
+Create a managed request before running `/ai-execute` or `/ai-verify`.
+
+Claude Code:
+
+```text
+/ai-request --task feature --name "<name>" --requirements docs/requirements/<name>.md --risk medium
+```
+
+Shell:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task feature --name "<name>" --requirements docs/requirements/<name>.md --risk medium
+```
+"""
+    safe_write(report, content, force=True, actions=[])
+    return report
+
+
 def write_execution_report(target: Path, request: ManagedRequest, actions: list[str], force: bool) -> Path:
     report = target / "docs" / "ai-engineering" / "execution-report.md"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -855,7 +891,13 @@ def main() -> int:
         raise SystemExit(f"Target project does not exist: {target}")
 
     request_path = Path(args.request).expanduser().resolve() if args.request else target / "docs" / "ai-engineering" / "current-request.md"
-    request = parse_request(target, request_path)
+    try:
+        request = parse_request(target, request_path)
+    except (FileNotFoundError, ValueError) as exc:
+        report = write_blocked_report(target, request_path, str(exc))
+        print(str(exc))
+        print(f"report: {report}")
+        return 1
 
     actions: list[str] = []
     if not args.skip_init:

@@ -33,3 +33,5 @@ Read:
 - `docs/memory/current-request-memory.md`
 
 If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Report what was generated, what verification ran, and what remains blocked.
+
+If the command exits non-zero, still read `docs/ai-engineering/execution-report.md`; it may contain a generated blocked report with the next `/ai-request` command.
