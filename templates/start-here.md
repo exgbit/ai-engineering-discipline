@@ -48,14 +48,18 @@ docs/prd/
 docs/product/
 ```
 
-Then create a managed request:
+Then create and execute a managed request:
+
+```text
+/ai-request --task feature --name "first feature" --requirements docs/requirements --risk medium
+/ai-execute
+```
+
+Equivalent script command:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
-  --task feature \
-  --name "first feature" \
-  --requirements docs/requirements \
-  --risk medium
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task feature --name "first feature" --requirements docs/requirements --risk medium
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
 
 Expected outputs:
@@ -67,35 +71,27 @@ docs/loops/<selected-loop>.md
 docs/verify/test-matrix.md
 ```
 
-## Daily Prompts
+## Daily Commands
 
 New feature:
 
-```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
-  --task feature \
-  --name "<feature-name>" \
-  --requirements docs/requirements/<feature>.md \
-  --risk medium
+```text
+/ai-request --task feature --name "<feature-name>" --requirements docs/requirements/<feature>.md --risk medium
+/ai-execute
 ```
 
 Bug fix:
 
-```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
-  --task bugfix \
-  --name "<bug-name>" \
-  --requirements docs/requirements/<bug>.md \
-  --risk medium
+```text
+/ai-request --task bugfix --name "<bug-name>" --requirements docs/requirements/<bug>.md --risk medium
+/ai-execute
 ```
 
 PR validation:
 
-```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
-  --task verify \
-  --name "pr validation" \
-  --risk medium
+```text
+/ai-request --task verify --name "pr validation" --risk medium
+/ai-verify
 ```
 
 Memory update:

@@ -2,7 +2,14 @@
 
 This framework is designed so users do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately.
 
-The user-facing interface is one managed request:
+The Claude Code user-facing interface is one managed request through slash commands:
+
+```text
+/ai-request --task feature --name "refund approval" --requirements docs/requirements/refund.md --risk medium
+/ai-execute
+```
+
+Equivalent script command:
 
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
@@ -62,10 +69,12 @@ docs/ai-engineering/current-request.md
 
 1. Install the framework into a target project.
 2. Open Claude Code or Codex in that project.
-3. Create a managed request with `run_request.py`.
-4. The orchestrator scans the project, imports or creates specs, selects a loop, verifies results, and writes memory.
+3. In Claude Code, run `/ai-start`.
+4. Create a managed request with `/ai-request`.
+5. Generate safe artifacts with `/ai-execute`.
+6. Run explicit verification with `/ai-verify` when needed.
 
-Command:
+Equivalent command:
 
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
@@ -79,7 +88,14 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
 
 If requirements already exist, the user should not rewrite them.
 
-Command:
+Claude Code command:
+
+```text
+/ai-request --task feature --name "first feature" --requirements docs/requirements --risk medium
+/ai-execute
+```
+
+Equivalent script command:
 
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
@@ -103,20 +119,23 @@ docs/memory/project-rules.md
 
 New feature:
 
-```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task feature --name "<feature-name>" --requirements docs/requirements/<feature>.md --risk medium
+```text
+/ai-request --task feature --name "<feature-name>" --requirements docs/requirements/<feature>.md --risk medium
+/ai-execute
 ```
 
 Bug fix:
 
-```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task bugfix --name "<bug-name>" --requirements docs/requirements/<bug>.md --risk medium
+```text
+/ai-request --task bugfix --name "<bug-name>" --requirements docs/requirements/<bug>.md --risk medium
+/ai-execute
 ```
 
 PR validation:
 
-```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task verify --name "pr validation" --risk medium
+```text
+/ai-request --task verify --name "pr validation" --risk medium
+/ai-verify
 ```
 
 Memory update:

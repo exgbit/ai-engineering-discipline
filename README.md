@@ -278,20 +278,22 @@ python scripts/execute_request.py /path/to/project --run-native-checks --run-sem
 
 ## If Requirements Already Exist
 
-Use the orchestrator:
+Use the Claude Code command:
 
 ```text
-Use ai-engineering-discipline.
-I already have requirement documents.
-Import them into specs, create a requirements index, select the first feature loop, and do not code until the spec and loop are ready.
+/ai-request --task feature --name "first feature" --requirements docs/requirements --risk medium
+/ai-execute
 ```
 
-Advanced users may call the step skills directly:
+Equivalent script command:
 
-```text
-Use ai-spec to import existing requirement documents into docs/specs/.
-Then use ai-loop to select the first implementation loop.
-Do not write code until the spec and loop are ready.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "first feature" \
+  --requirements docs/requirements \
+  --risk medium
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
 
 This creates a `docs/specs/requirements-index.md` and converts existing requirement docs into feature specs. See `framework/existing-requirements-workflow.md`.

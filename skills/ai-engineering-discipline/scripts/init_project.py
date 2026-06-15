@@ -309,12 +309,18 @@ The framework decides when each step runs and how artifacts move between steps.
 
 ## If Requirements Already Exist
 
-Put requirement documents under `docs/requirements/`, `docs/prd/`, or `docs/product/`, then ask:
+Put requirement documents under `docs/requirements/`, `docs/prd/`, or `docs/product/`, then run:
 
 ```text
-Use ai-engineering-discipline.
-I already have requirement documents.
-Import them into specs, create a requirements index, select the first implementation loop, and do not code until the spec and loop are ready.
+/ai-request --task feature --name "first feature" --requirements docs/requirements --risk medium
+/ai-execute
+```
+
+Equivalent script command:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task feature --name "first feature" --requirements docs/requirements --risk medium
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
 """
 

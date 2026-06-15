@@ -689,8 +689,16 @@ def write_verification_results(
                 f"- Status: `{item.status}`",
                 f"- Exit code: `{item.exit_code if item.exit_code is not None else ''}`",
                 "",
+                "Stdout:",
+                "",
                 "```text",
-                (item.stdout or item.stderr or "No output.").strip(),
+                (item.stdout or "No stdout.").strip(),
+                "```",
+                "",
+                "Stderr:",
+                "",
+                "```text",
+                (item.stderr or "No stderr.").strip(),
                 "```",
                 "",
             ])
@@ -713,6 +721,8 @@ def verification_rollup(semgrep: CommandResult | None, native: list[CommandResul
         return "pending", "No verification command was run."
     if any(item.status in {"failed", "timeout"} for item in results):
         return "blocked", "At least one verification command failed or timed out."
+    if any(item.status == "skipped" for item in results):
+        return "pending", "At least one requested verification command was skipped or unavailable."
     if semgrep:
         summary = parse_semgrep_summary(semgrep.stdout)
         if summary.get("findings", 0) or summary.get("errors", 0):
