@@ -1,0 +1,129 @@
+---
+name: ai-engineering-discipline
+description: Bootstrap and operate AI-assisted software projects with the Spec / Verify / Memory + Loop framework. Use when the user wants to initialize a project for Claude Code, reduce manual setup, create CLAUDE.md/AGENTS-style operating rules, install docs/specs docs/verify docs/memory docs/loops templates, choose an agent loop, or enter development with automated spec-first, verify-gated, memory-writing workflow.
+---
+
+# AI Engineering Discipline
+
+## Purpose
+
+Use this skill to initialize and operate a target repository with the `Spec / Verify / Memory + Loop` workflow.
+
+The skill should minimize human setup:
+
+```text
+bootstrap project -> inspect context -> ensure spec -> select loop -> verify -> update memory
+```
+
+## Quick Start
+
+When the user asks to initialize a project, run:
+
+```bash
+python <skill_dir>/scripts/init_project.py <target-project-path>
+```
+
+If the user is already inside the target project, use:
+
+```bash
+python <skill_dir>/scripts/init_project.py .
+```
+
+Use `--force` only when the user explicitly wants to overwrite existing framework files.
+
+## Execution Workflow
+
+### 1. Initialize Framework Files
+
+Run `scripts/init_project.py` against the target repository. It creates:
+
+```text
+CLAUDE.md
+docs/specs/spec-template.md
+docs/verify/verify-checklist.md
+docs/verify/test-matrix.md
+docs/memory/memory-entry.md
+docs/memory/project-rules.md
+docs/memory/module-map.md
+docs/memory/pitfalls.md
+docs/loops/loop-template.md
+docs/loops/bugfix-loop.md
+.github/pull_request_template.md
+```
+
+### 2. Inspect the Target Project
+
+After initialization, inspect the repository before editing source code:
+
+```bash
+python <skill_dir>/scripts/inspect_project.py <target-project-path>
+```
+
+This writes `docs/memory/project-scan.md` with detected stack signals, candidate commands, and important directories. Review it before treating it as a rule source.
+
+- identify language and framework;
+- identify build, test, lint, and package commands;
+- identify main source, test, config, and migration directories;
+- inspect existing README, package metadata, CI files, and test layout.
+
+Write only real findings. Do not invent project history.
+
+### 3. Seed Memory
+
+Update these files when evidence exists:
+
+- `docs/memory/project-rules.md`: architecture, coding, testing, and review rules.
+- `docs/memory/module-map.md`: module ownership and dependency boundaries.
+- `docs/memory/pitfalls.md`: real repeated problems or risks discovered in code/review.
+
+If evidence is insufficient, leave TODO placeholders instead of guessing.
+
+### 4. Enter Development
+
+For implementation work, enforce:
+
+```text
+Spec -> Loop -> Verify -> Memory
+```
+
+- If no spec exists, create one from `docs/specs/spec-template.md` before coding.
+- If no loop exists for the task type, create one from `docs/loops/loop-template.md`.
+- Use `docs/loops/bugfix-loop.md` for bug fixes with reproduction steps.
+- Run verification from `docs/verify/verify-checklist.md`.
+- Update memory only with durable lessons learned during the task.
+
+### 5. Stop Conditions
+
+Stop and ask the user before:
+
+- destructive operations;
+- production data or infrastructure changes;
+- credential, billing, permission, or security-sensitive changes;
+- exceeding retry, time, token, or cost budget;
+- continuing without verification evidence.
+
+## Recommended User Prompts
+
+Initialize current project:
+
+```text
+Use ai-engineering-discipline to initialize this repository and prepare it for Claude Code development.
+```
+
+Start a feature:
+
+```text
+Use ai-engineering-discipline to create a spec for <feature>, then enter the feature loop. Do not code until the spec is ready.
+```
+
+Fix a bug:
+
+```text
+Use ai-engineering-discipline bugfix loop. Reproduce first, add failing test or trace, then implement the minimal fix.
+```
+
+Run verification:
+
+```text
+Use ai-engineering-discipline to run the verify checklist and produce PR evidence.
+```

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Engineering Discipline"
+  short_description: "Bootstrap and operate Spec / Verify / Memory + Loop workflows."
+  default_prompt: "Use this skill to initialize a target project and enter AI-assisted development with Spec / Verify / Memory + Loop."

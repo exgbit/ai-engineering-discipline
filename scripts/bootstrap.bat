@@ -28,6 +28,7 @@ call :mkdir "%TARGET_DIR%\docs\verify"
 call :mkdir "%TARGET_DIR%\docs\memory"
 call :mkdir "%TARGET_DIR%\docs\loops"
 call :mkdir "%TARGET_DIR%\.github"
+call :mkdir "%TARGET_DIR%\.claude\skills"
 
 call :copy_file "%FRAMEWORK_ROOT%\CLAUDE.md" "%TARGET_DIR%\CLAUDE.md"
 call :copy_file "%FRAMEWORK_ROOT%\templates\spec-template.md" "%TARGET_DIR%\docs\specs\spec-template.md"
@@ -37,6 +38,7 @@ call :copy_file "%FRAMEWORK_ROOT%\templates\loop-template.md" "%TARGET_DIR%\docs
 call :copy_file "%FRAMEWORK_ROOT%\templates\pr-template.md" "%TARGET_DIR%\.github\pull_request_template.md"
 call :copy_file "%FRAMEWORK_ROOT%\examples\test-matrix.example.md" "%TARGET_DIR%\docs\verify\test-matrix.md"
 call :copy_file "%FRAMEWORK_ROOT%\examples\loop-runbook.example.md" "%TARGET_DIR%\docs\loops\bugfix-loop.md"
+call :copy_dir "%FRAMEWORK_ROOT%\skills\ai-engineering-discipline" "%TARGET_DIR%\.claude\skills\ai-engineering-discipline"
 
 call :write_project_rules "%TARGET_DIR%\docs\memory\project-rules.md"
 call :write_module_map "%TARGET_DIR%\docs\memory\module-map.md"
@@ -46,8 +48,9 @@ echo.
 echo Bootstrap complete.
 echo Next steps:
 echo   1. Read %TARGET_DIR%\CLAUDE.md
-echo   2. Create the first real spec under docs\specs\
-echo   3. Run the first task through docs\loops\bugfix-loop.md or docs\loops\loop-template.md
+echo   2. Open Claude Code in the target project.
+echo   3. Say: Use ai-engineering-discipline to inspect this project and enter development.
+echo   4. The skill will create docs\memory\project-scan.md and guide Spec -^> Loop -^> Verify -^> Memory.
 exit /b 0
 
 :usage
@@ -69,6 +72,18 @@ if exist "%DST%" if not "%FORCE%"=="1" (
   exit /b 0
 )
 copy /Y "%SRC%" "%DST%" >nul
+echo installed: %DST%
+exit /b 0
+
+:copy_dir
+set "SRC=%~1"
+set "DST=%~2"
+if exist "%DST%\" if not "%FORCE%"=="1" (
+  echo skip existing: %DST%
+  exit /b 0
+)
+if not exist "%DST%\" mkdir "%DST%"
+xcopy "%SRC%\*" "%DST%\" /E /I /Y >nul
 echo installed: %DST%
 exit /b 0
 

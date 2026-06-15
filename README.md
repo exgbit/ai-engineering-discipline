@@ -40,6 +40,8 @@ scripts/
   bootstrap.sh              # macOS / Linux 项目安装脚本
   bootstrap.bat             # Windows 项目安装脚本
   summarize_metrics.py      # 指标摘要脚本
+skills/
+  ai-engineering-discipline/ # Claude/Codex skill for project initialization and operation
 writing/
   source-notes.md           # 发布前来源核验
   article-brief.md          # 文章策划
@@ -78,6 +80,7 @@ The installer creates:
 
 ```text
 CLAUDE.md
+.claude/skills/ai-engineering-discipline/
 docs/specs/spec-template.md
 docs/verify/verify-checklist.md
 docs/verify/test-matrix.md
@@ -90,14 +93,28 @@ docs/loops/bugfix-loop.md
 .github/pull_request_template.md
 ```
 
+After install, open the target project in Claude Code and say:
+
+```text
+Use ai-engineering-discipline to inspect this project and enter development.
+```
+
+The skill will:
+
+1. ensure framework files exist;
+2. scan stack signals and candidate commands into `docs/memory/project-scan.md`;
+3. guide Claude through `Spec -> Loop -> Verify -> Memory`;
+4. stop before unsafe or unverifiable work.
+
 ## How To Use
 
 1. 在目标项目中创建 `docs/specs/`、`docs/verify/`、`docs/memory/`、`docs/loops/`。
-2. 将 `CLAUDE.md` 复制到目标项目根目录，让 Claude Code 自动按四层协议执行。
-3. 将 `templates/` 中的模板复制到项目中。
-4. 每个需求先补 `spec`，每个 PR 必须过 `verify`，每次事故或踩坑必须更新 `memory`。
-5. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
-6. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
+2. 将 `.claude/skills/ai-engineering-discipline/` 安装到目标项目，让 Claude Code 可以直接调用 skill。
+3. 将 `CLAUDE.md` 复制到目标项目根目录，让 Claude Code 自动按四层协议执行。
+4. 将 `templates/` 中的模板复制到项目中。
+5. 每个需求先补 `spec`，每个 PR 必须过 `verify`，每次事故或踩坑必须更新 `memory`。
+6. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
+7. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
 
 Manual bootstrap example:
 
