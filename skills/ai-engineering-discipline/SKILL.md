@@ -55,6 +55,14 @@ python .codex/skills/ai-engineering-discipline/scripts/run_request.py . \
 
 This resolves framework parameters from presets and writes `docs/ai-engineering/current-request.md`. Execute that request through this orchestrator.
 
+Then execute safe setup artifacts:
+
+```bash
+python <skill_dir>/scripts/execute_request.py .
+```
+
+This creates generated spec, loop, verify, memory-plan, and execution-report files. It does not edit business code or run destructive tools.
+
 ## Quick Start
 
 When the user asks to initialize a project, run:
@@ -131,6 +139,8 @@ Spec -> Loop -> Verify -> Memory
 - Use `docs/loops/bugfix-loop.md` for bug fixes with reproduction steps.
 - Run verification from `docs/verify/verify-checklist.md`.
 - Update memory only with durable lessons learned during the task.
+
+For managed requests, prefer `scripts/execute_request.py` before implementation. It converts `docs/ai-engineering/current-request.md` into concrete generated artifacts, so the agent does not need to reinterpret low-level framework parameters.
 
 ### 5. Install Default Open-Source Adapters
 

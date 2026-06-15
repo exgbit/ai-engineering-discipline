@@ -65,6 +65,14 @@ docs/ai-engineering/current-request.md
 
 Then execute that request. Do not ask the user for Spec Kit, LangGraph, Semgrep, or Mem0 parameters unless the preset is blocked.
 
+Prefer the safe executor before implementation:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
+```
+
+This creates generated spec, loop, verify, memory-plan, and execution-report files. It does not edit business code or run destructive tools.
+
 ## Initialize a Project
 
 If the current directory is the target project:
@@ -108,6 +116,7 @@ Before implementation:
 2. Use `ai-spec` to locate, import, or create specs.
 3. Use `ai-loop` to choose or create the execution loop.
 4. Read relevant files in `docs/specs/`, `docs/memory/`, and `docs/loops/`.
+5. For managed requests, run `scripts/execute_request.py` first so `current-request.md` becomes concrete artifacts.
 
 During implementation:
 

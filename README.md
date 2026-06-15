@@ -52,6 +52,7 @@ scripts/
   bootstrap.bat             # Windows 项目安装脚本
   install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
   run_request.py            # Create managed request from task/risk/requirements
+  execute_request.py        # Execute safe setup steps from current-request.md
   summarize_metrics.py      # 指标摘要脚本
 skills/
   ai-engineering-discipline/ # Codex orchestrator skill
@@ -185,6 +186,14 @@ task=feature risk=medium requirements=refund.md
 
 The resolved plan is written to `docs/ai-engineering/current-request.md`.
 
+Then execute the safe setup steps:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
+```
+
+This creates or updates generated spec, loop, verify, memory-plan, and execution-report artifacts. It does not edit business code, install packages, run destructive commands, or claim implementation success.
+
 For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`.
 
 ## Default Open-Source Adapter Stack
@@ -214,13 +223,21 @@ This writes `docs/adapters/default-stack.md` in the target project with detected
 
 ## How To Use
 
-1. 在目标项目中创建 `docs/specs/`、`docs/verify/`、`docs/memory/`、`docs/loops/`。
-2. 将 `.claude/skills/ai-engineering-discipline/` 安装到目标项目，让 Claude Code 可以直接调用 skill。
-3. 将 `CLAUDE.md` 复制到目标项目根目录，让 Claude Code 自动按四层协议执行。
-4. 将 `templates/` 中的模板复制到项目中。
-5. 每个需求先补 `spec`，每个 PR 必须过 `verify`，每次事故或踩坑必须更新 `memory`。
-6. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
-7. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
+Use scripts first; manual setup is only a fallback.
+
+1. Run `scripts/bootstrap.sh <target>` or `scripts/bootstrap.bat <target>`.
+2. Create a managed request with `run_request.py`.
+3. Run `execute_request.py` to generate the safe working artifacts.
+4. Open Claude Code or Codex in the target project and use the generated spec, loop, verify plan, and memory plan.
+5. Track adoption with `data/metrics-schema.csv`.
+
+Minimum example:
+
+```bash
+./scripts/bootstrap.sh /path/to/project
+python scripts/run_request.py /path/to/project --task feature --name "refund approval" --requirements /path/to/refund.md
+python scripts/execute_request.py /path/to/project
+```
 
 ## If Requirements Already Exist
 

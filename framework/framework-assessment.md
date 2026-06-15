@@ -34,6 +34,7 @@ This framework centralizes those decisions:
 - Risk policy is encoded in presets instead of improvised per developer.
 - Requirement documents can be imported instead of rewritten.
 - The same request format works for Claude Code and Codex.
+- `execute_request.py` converts a managed request into concrete safe artifacts before implementation.
 
 ## Current Limitations
 
@@ -42,6 +43,7 @@ This framework centralizes those decisions:
 - Semgrep results are not yet parsed into structured `test-matrix.md` entries.
 - Mem0 is configured as the default memory adapter, but memory writes still default to local Markdown unless a preset enables `mem0_write`.
 - Presets cover common task/risk combinations, not every company policy.
+- `execute_request.py` intentionally avoids business code changes and external tool execution by default.
 
 ## Data Needed To Prove Value
 
@@ -62,7 +64,7 @@ Use a four-week pilot before making claims about impact.
 
 ## Recommended Next Optimizations
 
-1. Add a `scripts/execute_request.py` runner that can execute safe parts of `current-request.md`.
+1. Add optional safe tool execution for Semgrep/native checks with explicit flags.
 2. Add a LangGraph graph generator for common runbooks.
 3. Parse Semgrep JSON output into `docs/verify/`.
 4. Add optional Mem0 write/read commands gated by preset policy.

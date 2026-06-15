@@ -94,8 +94,8 @@ Only record real rules, boundaries, and pitfalls.
 
 Most users should not call `ai-spec`, `ai-loop`, `ai-verify`, or `ai-memory` directly. Those are internal steps used by `ai-engineering-discipline`.
 
-After creating a managed request, ask Claude Code:
+After creating a managed request, execute safe setup:
 
-```text
-Use ai-engineering-discipline to execute docs/ai-engineering/current-request.md.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```

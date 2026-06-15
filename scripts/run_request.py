@@ -117,7 +117,10 @@ def ensure_loop(target: Path, task: str) -> Path:
         content = template.read_text(encoding="utf-8")
     else:
         content = "# Loop Template\n\n"
-    loop_path.write_text(content.replace("# Loop Template", f"# {loop_name}"), encoding="utf-8")
+    loop_path.write_text(
+        "<!-- ai-engineering:generated -->\n" + content.replace("# Loop Template", f"# {loop_name}"),
+        encoding="utf-8",
+    )
     return loop_path
 
 
@@ -210,16 +213,17 @@ The user should not provide low-level framework parameters. This preset resolves
 
 Use `ai-engineering-discipline` as the only user-facing workflow.
 
-1. Use the resolved Spec parameters; do not ask the user for Spec Kit flags unless blocked.
-2. Use `ai-spec` internally to import the requirement sources and create/update the target spec.
-3. Use the resolved Loop parameters; do not ask the user for LangGraph/state-machine flags unless blocked.
-4. Use `ai-loop` internally to finalize the selected loop.
-5. Do not implement code until the spec and loop are ready.
-6. If `Execute implementation now` is `true`, implement in small scoped steps.
-7. Use the resolved Verify parameters; run Semgrep and native checks as applicable.
-8. Use `ai-verify` internally to run evidence gates.
-9. Use the resolved Memory parameters.
-10. Use `ai-memory` internally to update only real, evidence-backed memory.
+1. Run `execute_request.py` first to convert this request into concrete spec, loop, verify, and memory artifacts.
+2. Use the resolved Spec parameters; do not ask the user for Spec Kit flags unless blocked.
+3. Use `ai-spec` internally to import the requirement sources and create/update the target spec.
+4. Use the resolved Loop parameters; do not ask the user for LangGraph/state-machine flags unless blocked.
+5. Use `ai-loop` internally to finalize the selected loop.
+6. Do not implement code until the spec and loop are ready.
+7. If `Execute implementation now` is `true`, implement in small scoped steps.
+8. Use the resolved Verify parameters; run Semgrep and native checks as applicable.
+9. Use `ai-verify` internally to run evidence gates.
+10. Use the resolved Memory parameters.
+11. Use `ai-memory` internally to update only real, evidence-backed memory.
 
 ## Additional Notes
 
