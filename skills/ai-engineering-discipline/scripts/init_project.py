@@ -460,10 +460,12 @@ If it exists, run:
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/init_project.py .
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/doctor.py .
 ```
 
 Then read `docs/AI_ENGINEERING_START_HERE.md`, `docs/memory/project-scan.md`, and `CLAUDE.md`.
-Summarize the detected stack, candidate verification commands, and next managed-request command. Do not modify business code.
+Also read `docs/ai-engineering/doctor-report.md`.
+Summarize doctor failures first, then detected stack, candidate verification commands, and next managed-request command. Do not modify business code.
 """
 
 

@@ -16,12 +16,14 @@ If it exists, run:
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/init_project.py .
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/doctor.py .
 ```
 
 Then read:
 
 - `docs/AI_ENGINEERING_START_HERE.md`
 - `docs/memory/project-scan.md`
+- `docs/ai-engineering/doctor-report.md`
 - `CLAUDE.md`
 
-Summarize the detected stack, candidate verification commands, and the next managed-request command the user should run. Do not modify business code.
+Summarize doctor failures first, then detected stack, candidate verification commands, and the next managed-request command the user should run. Do not modify business code.

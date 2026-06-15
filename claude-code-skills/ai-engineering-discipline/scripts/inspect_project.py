@@ -44,12 +44,18 @@ def detect_commands(root: Path) -> list[str]:
 
     package_json = root / "package.json"
     if package_json.exists():
+        if (root / "pnpm-lock.yaml").exists():
+            runner = "pnpm"
+        elif (root / "yarn.lock").exists():
+            runner = "yarn"
+        else:
+            runner = "npm run"
         try:
             data = json.loads(package_json.read_text(encoding="utf-8"))
             scripts = data.get("scripts", {})
             for name in ["test", "lint", "typecheck", "build", "dev"]:
                 if name in scripts:
-                    commands.append(f"npm run {name}")
+                    commands.append(f"{runner} {name}")
         except Exception:
             commands.append("npm test")
 
