@@ -70,6 +70,29 @@ After implementation:
 2. Produce PR evidence using `.github/pull_request_template.md`.
 3. Do not present generated explanations as verification evidence.
 
+## Default Open-Source Adapters
+
+When the user asks to automatically connect mature frameworks, use this default stack:
+
+- Spec: GitHub Spec Kit
+- Loop: LangGraph
+- Verify: Semgrep
+- Memory: Mem0
+
+Run from the installed Claude Code skill:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/install_default_adapters.py .
+```
+
+If the framework repository is available, this also works:
+
+```bash
+python scripts/install_default_adapters.py <target-project-path>
+```
+
+This only plans installation and writes `docs/adapters/default-stack.md`. Add `--execute` only when the user explicitly approves dependency installation.
+
 ## Stop Conditions
 
 Stop and ask for review before:

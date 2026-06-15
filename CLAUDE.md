@@ -170,6 +170,17 @@ Track these weekly during adoption:
 
 Use `scripts/summarize_metrics.py` when a metrics CSV is available.
 
+## Default Open-Source Adapters
+
+Prefer this default adapter stack unless the target project already standardizes on another framework:
+
+- `Spec`: GitHub Spec Kit
+- `Loop`: LangGraph
+- `Verify`: Semgrep
+- `Memory`: Mem0
+
+Use `scripts/install_default_adapters.py <target>` to generate an adapter report. Use `--execute` only when the user explicitly wants installation.
+
 ## Default Behavior
 
 When asked to "implement", "fix", "refactor", or "build":

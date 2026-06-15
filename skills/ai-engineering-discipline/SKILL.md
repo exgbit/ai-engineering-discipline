@@ -92,7 +92,30 @@ Spec -> Loop -> Verify -> Memory
 - Run verification from `docs/verify/verify-checklist.md`.
 - Update memory only with durable lessons learned during the task.
 
-### 5. Stop Conditions
+### 5. Install Default Open-Source Adapters
+
+When the user wants mature GitHub/open-source frameworks automatically connected, use the default stack:
+
+- Spec: GitHub Spec Kit
+- Loop: LangGraph
+- Verify: Semgrep
+- Memory: Mem0
+
+Run from the framework repository:
+
+```bash
+python scripts/install_default_adapters.py <target-project-path>
+```
+
+Or run from an installed skill:
+
+```bash
+python <skill_dir>/scripts/install_default_adapters.py <target-project-path>
+```
+
+This is a dry run that writes `docs/adapters/default-stack.md`. Run with `--execute` only after the user confirms real installation.
+
+### 6. Stop Conditions
 
 Stop and ask the user before:
 

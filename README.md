@@ -17,6 +17,8 @@ AI 编程必须具备三件套，并通过 loop 跑起来：
 CLAUDE.md                    # Agent operating protocol
 claude-code-skills/
   ai-engineering-discipline/ # Claude Code skill package
+adapters/
+  default-stack.json        # Default open-source framework choices
 framework/
   spec-verify-memory.md     # 核心框架
   loop-engineering.md       # Loop Engineering 执行模型
@@ -41,6 +43,7 @@ examples/
 scripts/
   bootstrap.sh              # macOS / Linux 项目安装脚本
   bootstrap.bat             # Windows 项目安装脚本
+  install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
   summarize_metrics.py      # 指标摘要脚本
 skills/
   ai-engineering-discipline/ # Codex skill package
@@ -78,6 +81,23 @@ By default, existing files are not overwritten. To reinstall framework files, ad
 scripts\bootstrap.bat C:\path\to\target-project --force
 ```
 
+To also install the default open-source adapter stack automatically:
+
+```bash
+./scripts/bootstrap.sh /path/to/target-project --install-adapters
+```
+
+```bat
+scripts\bootstrap.bat C:\path\to\target-project --install-adapters
+```
+
+This installs:
+
+- Spec: GitHub Spec Kit
+- Loop: LangGraph
+- Verify: Semgrep
+- Memory: Mem0
+
 The installer creates:
 
 ```text
@@ -108,6 +128,31 @@ The Claude Code skill will:
 2. scan stack signals and candidate commands into `docs/memory/project-scan.md`;
 3. guide Claude through `Spec -> Loop -> Verify -> Memory`;
 4. stop before unsafe or unverifiable work.
+
+## Default Open-Source Adapter Stack
+
+The framework uses one opinionated default GitHub/open-source framework per layer:
+
+| Layer | Default | Purpose |
+|---|---|---|
+| Spec | GitHub Spec Kit | Spec-driven development and agent-facing spec workflow |
+| Loop | LangGraph | Stateful agent loop and graph orchestration |
+| Verify | Semgrep | Cross-language static analysis and security verification |
+| Memory | Mem0 | Durable agent memory layer |
+
+Plan installation without changing the machine:
+
+```bash
+python scripts/install_default_adapters.py /path/to/target-project
+```
+
+Install missing adapters:
+
+```bash
+python scripts/install_default_adapters.py /path/to/target-project --execute
+```
+
+This writes `docs/adapters/default-stack.md` in the target project with detected status and install commands.
 
 ## How To Use
 

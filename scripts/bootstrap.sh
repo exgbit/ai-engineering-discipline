@@ -4,31 +4,41 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap.sh <target-project-path> [--force]
+  scripts/bootstrap.sh <target-project-path> [--force] [--install-adapters]
 
 Installs the Spec / Verify / Memory + Loop framework into a target project.
 
 Options:
-  --force   Overwrite existing framework files in the target project.
+  --force             Overwrite existing framework files in the target project.
+  --install-adapters  Install default open-source adapters: Spec Kit, LangGraph, Semgrep, Mem0.
 USAGE
 }
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
+if [[ $# -lt 1 ]]; then
   usage
   exit 1
 fi
 
 TARGET_DIR="$1"
 FORCE="0"
+INSTALL_ADAPTERS="0"
+shift
 
-if [[ $# -eq 2 ]]; then
-  if [[ "$2" == "--force" ]]; then
-    FORCE="1"
-  else
-    usage
-    exit 1
-  fi
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force)
+      FORCE="1"
+      ;;
+    --install-adapters)
+      INSTALL_ADAPTERS="1"
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRAMEWORK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -122,10 +132,17 @@ write_file_if_missing "$TARGET_DIR/docs/memory/pitfalls.md" "Pitfalls" \
 - Rule / Lesson:
 - Verification to add next time:"
 
+if [[ "$INSTALL_ADAPTERS" == "1" ]]; then
+  python "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR" --execute
+else
+  python "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR"
+fi
+
 echo
 echo "Bootstrap complete."
 echo "Next steps:"
 echo "  1. Read $TARGET_DIR/CLAUDE.md"
 echo "  2. Open Claude Code in the target project."
 echo "  3. Say: Use ai-engineering-discipline to inspect this project and enter development."
-echo "  4. The skill will create docs/memory/project-scan.md and guide Spec -> Loop -> Verify -> Memory."
+echo "  4. Review docs/adapters/default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status."
+echo "  5. The skill will create docs/memory/project-scan.md and guide Spec -> Loop -> Verify -> Memory."

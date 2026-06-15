@@ -2,18 +2,25 @@
 setlocal enabledelayedexpansion
 
 if "%~1"=="" goto usage
-if not "%~3"=="" goto usage
+if not "%~4"=="" goto usage
 
 set "TARGET_DIR=%~1"
 set "FORCE=0"
+set "INSTALL_ADAPTERS=0"
 
-if not "%~2"=="" (
-  if "%~2"=="--force" (
-    set "FORCE=1"
-  ) else (
-    goto usage
-  )
+shift
+:parse_args
+if "%~1"=="" goto parsed_args
+if "%~1"=="--force" (
+  set "FORCE=1"
+) else if "%~1"=="--install-adapters" (
+  set "INSTALL_ADAPTERS=1"
+) else (
+  goto usage
 )
+shift
+goto parse_args
+:parsed_args
 
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%SCRIPT_DIR%..") do set "FRAMEWORK_ROOT=%%~fI"
@@ -46,18 +53,25 @@ call :write_project_rules "%TARGET_DIR%\docs\memory\project-rules.md"
 call :write_module_map "%TARGET_DIR%\docs\memory\module-map.md"
 call :write_pitfalls "%TARGET_DIR%\docs\memory\pitfalls.md"
 
+if "%INSTALL_ADAPTERS%"=="1" (
+  python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%" --execute
+) else (
+  python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%"
+)
+
 echo.
 echo Bootstrap complete.
 echo Next steps:
 echo   1. Read %TARGET_DIR%\CLAUDE.md
 echo   2. Open Claude Code in the target project.
 echo   3. Say: Use ai-engineering-discipline to inspect this project and enter development.
-echo   4. The skill will create docs\memory\project-scan.md and guide Spec -^> Loop -^> Verify -^> Memory.
+echo   4. Review docs\adapters\default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status.
+echo   5. The skill will create docs\memory\project-scan.md and guide Spec -^> Loop -^> Verify -^> Memory.
 exit /b 0
 
 :usage
 echo Usage:
-echo   scripts\bootstrap.bat ^<target-project-path^> [--force]
+echo   scripts\bootstrap.bat ^<target-project-path^> [--force] [--install-adapters]
 echo.
 echo Installs the Spec / Verify / Memory + Loop framework into a target project.
 exit /b 1
