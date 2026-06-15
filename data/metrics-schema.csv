@@ -1,0 +1,9 @@
+metric,definition,collection_method,target,frequency
+spec_coverage_rate,Percentage of AI-assisted tasks with written acceptance criteria,Count PRs linked to specs divided by AI-assisted PRs,>=90%,weekly
+test_traceability_rate,Percentage of requirements mapped to test cases,Review docs/verify/test-matrix.md,>=80%,weekly
+ai_pr_rollback_rate,Rollback rate for AI-assisted PRs,Compare reverted AI PRs against merged AI PRs,not higher than non-AI PRs,monthly
+review_rounds_per_pr,Average number of review cycles before merge,Pull request metadata,downward trend,weekly
+main_branch_failure_rate,Percentage of main branch builds that fail,CI history,downward trend,weekly
+escaped_defects,Production bugs linked to AI-assisted changes,Incident review,downward trend,monthly
+memory_update_rate,Percentage of qualifying PRs that update memory docs,PR checklist audit,>=70%,weekly
+repeat_review_comment_rate,Repeated comments on same class of issue,Review comment tagging,downward trend,monthly

@@ -1,0 +1,6 @@
+date,source_or_project,signal_type,core_mechanism,mapped_pillar,notes,source_url,status
+2026-Q2,Trellis,methodology_signal,specs stored and reviewed like code,Spec,"User-provided signal; verify source before public citation.",,unverified
+2026-Q2,ai-devkit,methodology_signal,engineering gates before AI output reaches production,Verify,"User-provided signal; verify source before public citation.",,unverified
+2026-Q2,Warp SDD,methodology_signal,two-layer specification driven development,Spec,"User-provided signal; verify source before public citation.",,unverified
+2026-Q2,Addy Osmani,methodology_signal,verify gate and anti-rationalization checklist,Verify,"User-provided signal; verify source before public citation.",,unverified
+2026-Q2,Internal Framework,derived_principle,spec verify memory as minimum AI coding discipline,Memory,"Use as internal synthesis, not external factual citation.",,internal

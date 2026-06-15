@@ -1,0 +1,6 @@
+week,ai_assisted_prs,spec_coverage_rate,test_traceability_rate,review_rounds_per_pr,main_branch_failure_rate,escaped_defects,memory_update_rate,notes
+baseline,24,0.25,0.18,3.4,0.21,5,0.05,"Synthetic example: before framework adoption."
+week_1,22,0.68,0.42,3.1,0.18,4,0.22,"Synthetic example: specs introduced."
+week_2,26,0.81,0.61,2.7,0.12,3,0.38,"Synthetic example: verify gate introduced."
+week_3,25,0.88,0.74,2.4,0.09,2,0.64,"Synthetic example: memory system introduced."
+week_4,27,0.92,0.83,2.1,0.07,2,0.76,"Synthetic example: pilot stabilized."
