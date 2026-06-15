@@ -13,6 +13,7 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
+set -e
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/init_project.py .
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .

@@ -457,6 +457,7 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
+set -e
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/init_project.py .
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .
@@ -481,9 +482,10 @@ From the repository root, first check that this file exists:
 
 If it does not exist, stop and tell the user to run the framework bootstrap script first.
 
-If it exists, run:
+If it exists, run this single command block:
 
 ```bash
+set -e
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/run_request.py . $ARGUMENTS
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
@@ -508,6 +510,7 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
+set -e
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . $ARGUMENTS
 ```
@@ -533,6 +536,7 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run this default command:
 
 ```bash
+set -e
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
 ```
@@ -558,6 +562,7 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
+set -e
 if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/doctor.py . $ARGUMENTS
 ```

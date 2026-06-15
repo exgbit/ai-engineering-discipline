@@ -60,12 +60,13 @@ def command_check(target: Path, name: str) -> Check:
 def command_content_check(target: Path, name: str, required_text: str) -> Check:
     rel_path = f".claude/commands/{name}.md"
     path = target / rel_path
+    item = f"{rel_path} contains {required_text!r}"
     if not path.is_file():
-        return Check("fail", rel_path, "missing slash command")
+        return Check("fail", item, "missing slash command")
     content = path.read_text(encoding="utf-8", errors="ignore")
     if required_text in content:
-        return Check("ok", f"{rel_path} content", "current command content")
-    return Check("warn", f"{rel_path} content", f"missing expected text: {required_text}")
+        return Check("ok", item, "current command content")
+    return Check("warn", item, f"missing expected text: {required_text}")
 
 
 def collect_checks(target: Path) -> list[Check]:
@@ -97,10 +98,15 @@ def collect_checks(target: Path) -> list[Check]:
         command_check(target, "ai-verify"),
         command_check(target, "ai-doctor"),
         command_content_check(target, "ai-start", "PYTHON=python3"),
+        command_content_check(target, "ai-start", "set -e"),
         command_content_check(target, "ai-request", "PYTHON=python3"),
+        command_content_check(target, "ai-request", "set -e"),
         command_content_check(target, "ai-execute", "PYTHON=python3"),
+        command_content_check(target, "ai-execute", "set -e"),
         command_content_check(target, "ai-verify", "PYTHON=python3"),
+        command_content_check(target, "ai-verify", "set -e"),
         command_content_check(target, "ai-doctor", "doctor-report.md"),
+        command_content_check(target, "ai-doctor", "set -e"),
         file_check(target, "docs/ai-engineering/current-request.md", required=False),
         file_check(target, "docs/adapters/default-stack.md", required=False),
         file_check(target, "docs/memory/project-scan.md", required=False),
