@@ -210,6 +210,7 @@ The resolved plan is written to `docs/ai-engineering/current-request.md`.
 For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
 
 Requirement paths may be absolute, relative to your current shell directory, or relative to the target project.
+`run_request.py` imports external requirement files into the target project; `execute_request.py` only reads requirement sources that are already inside the target project.
 
 Then execute the safe setup steps:
 

@@ -30,6 +30,7 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
 For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
 
 Requirement paths may be absolute, relative to your current shell directory, or relative to the target project.
+External requirement files are imported by `run_request.py`; `execute_request.py` only reads requirement sources already inside this project.
 
 ## What Happens Behind the Scenes
 

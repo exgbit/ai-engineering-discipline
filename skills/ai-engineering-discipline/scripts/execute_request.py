@@ -102,25 +102,28 @@ def parse_bullet_value(section: str, label: str) -> str:
     return match.group(1).strip() if match else ""
 
 
+def target_project_path(target: Path, raw: str, label: str) -> Path:
+    target_root = target.resolve()
+    path = Path(raw).expanduser()
+    candidate = path if path.is_absolute() else target_root / path
+    candidate = candidate.resolve()
+    if candidate != target_root and not candidate.is_relative_to(target_root):
+        raise SystemExit(f"{label} must stay inside target project: {candidate}")
+    return candidate
+
+
 def parse_bullet_paths(section: str, target: Path) -> list[Path]:
     paths: list[Path] = []
     for match in re.finditer(r"^- `([^`]+)`\s*$", section, flags=re.MULTILINE):
         raw = match.group(1)
         if raw == "None":
             continue
-        path = Path(raw)
-        paths.append(path if path.is_absolute() else target / path)
+        paths.append(target_project_path(target, raw, "Requirement source"))
     return paths
 
 
 def target_artifact_path(target: Path, raw: str, label: str) -> Path:
-    target_root = target.resolve()
-    path = Path(raw).expanduser()
-    candidate = path if path.is_absolute() else target_root / path
-    candidate = candidate.resolve()
-    if candidate != target_root and not candidate.is_relative_to(target_root):
-        raise SystemExit(f"{label} artifact must stay inside target project: {candidate}")
-    return candidate
+    return target_project_path(target, raw, f"{label} artifact")
 
 
 def parse_request(target: Path, request_path: Path) -> ManagedRequest:
