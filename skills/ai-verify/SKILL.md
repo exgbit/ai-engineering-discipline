@@ -11,7 +11,7 @@ Install/run:
 
 ```bash
 python -m pip install --user semgrep
-semgrep scan --config auto
+semgrep scan --config auto --json .
 ```
 
 Always add native project checks when available: `npm test`, `pytest`, `go test ./...`, `cargo test`, `mvn test`, lint, typecheck, build.

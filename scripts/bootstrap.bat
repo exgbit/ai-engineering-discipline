@@ -35,6 +35,7 @@ call :mkdir "%TARGET_DIR%\docs\verify"
 call :mkdir "%TARGET_DIR%\docs\memory"
 call :mkdir "%TARGET_DIR%\docs\loops"
 call :mkdir "%TARGET_DIR%\.github"
+call :mkdir "%TARGET_DIR%\.claude\commands"
 call :mkdir "%TARGET_DIR%\.claude\skills"
 call :mkdir "%TARGET_DIR%\.codex\skills"
 
@@ -52,6 +53,12 @@ for %%S in (ai-engineering-discipline ai-spec ai-loop ai-verify ai-memory) do (
   call :copy_dir "%FRAMEWORK_ROOT%\claude-code-skills\%%S" "%TARGET_DIR%\.claude\skills\%%S"
 )
 
+if exist "%FRAMEWORK_ROOT%\claude-code-commands\" (
+  for %%C in ("%FRAMEWORK_ROOT%\claude-code-commands\*.md") do (
+    call :copy_file "%%~fC" "%TARGET_DIR%\.claude\commands\%%~nxC"
+  )
+)
+
 call :write_project_rules "%TARGET_DIR%\docs\memory\project-rules.md"
 call :write_module_map "%TARGET_DIR%\docs\memory\module-map.md"
 call :write_pitfalls "%TARGET_DIR%\docs\memory\pitfalls.md"
@@ -67,8 +74,9 @@ echo Bootstrap complete.
 echo Next steps:
 echo   1. Read %TARGET_DIR%\docs\AI_ENGINEERING_START_HERE.md
 echo   2. Open Claude Code in the target project.
-echo   3. Say: Use ai-engineering-discipline to inspect this project and enter development.
-echo   4. Review docs\adapters\default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status.
+echo   3. Run: /ai-start
+echo   4. Create work with: /ai-request --task feature --name "..." --requirements docs\requirements\...
+echo   5. Review docs\adapters\default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status.
 exit /b 0
 
 :usage

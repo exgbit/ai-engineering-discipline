@@ -567,7 +567,7 @@ def semgrep_command(request: ManagedRequest) -> list[str]:
     config = request.verify_params.get("semgrep_config", "auto")
     if not isinstance(config, str) or not config:
         config = "auto"
-    return ["semgrep", "--config", config, "--json", "."]
+    return ["semgrep", "scan", "--config", config, "--json", "."]
 
 
 def parse_semgrep_summary(raw_output: str) -> dict[str, object]:
@@ -707,6 +707,80 @@ def write_verification_results(
             actions.append(f"update: {plan}")
 
 
+def verification_rollup(semgrep: CommandResult | None, native: list[CommandResult]) -> tuple[str, str]:
+    results = ([semgrep] if semgrep else []) + native
+    if not results:
+        return "pending", "No verification command was run."
+    if any(item.status in {"failed", "timeout"} for item in results):
+        return "blocked", "At least one verification command failed or timed out."
+    if semgrep:
+        summary = parse_semgrep_summary(semgrep.stdout)
+        if summary.get("findings", 0) or summary.get("errors", 0):
+            return "blocked", "Semgrep reported findings or scan errors."
+    if any(item.status == "passed" for item in results):
+        return "verified", "All executed verification commands passed."
+    return "pending", "Verification commands were skipped or unavailable."
+
+
+def update_test_matrix_with_results(
+    target: Path,
+    request: ManagedRequest,
+    semgrep: CommandResult | None,
+    native: list[CommandResult],
+    actions: list[str],
+) -> None:
+    if semgrep is None and not native:
+        return
+    matrix_path = request.verify_matrix_path
+    if matrix_path.exists():
+        existing = matrix_path.read_text(encoding="utf-8")
+        if GENERATED not in existing:
+            actions.append(f"skip human file: {matrix_path}")
+            return
+
+    status, reason = verification_rollup(semgrep, native)
+    rows = []
+    for idx, source in enumerate(request.requirements or [Path("none")], start=1):
+        requirement = requirement_title(source) if source != Path("none") else request.name
+        rows.append(f"| R{idx} | {requirement} | TBD | TBD | See verification evidence below | {status} |")
+
+    evidence_rows = []
+    if semgrep:
+        evidence_rows.append(
+            f"| semgrep | `{command_to_text(semgrep.command)}` | {semgrep.status} | {semgrep.exit_code if semgrep.exit_code is not None else ''} |"
+        )
+    for item in native:
+        evidence_rows.append(
+            f"| {item.name} | `{command_to_text(item.command)}` | {item.status} | {item.exit_code if item.exit_code is not None else ''} |"
+        )
+
+    content = f"""# Test Matrix
+
+Request: `{request.name}`
+Spec: `{rel(request.spec_path, target)}`
+
+| Requirement ID | Requirement | Unit Test | Integration Test | Manual / Release Check | Status |
+|---|---|---|---|---|---|
+{chr(10).join(rows)}
+
+## Verification Evidence
+
+Status: `{status}`
+
+Reason: {reason}
+
+| Check | Command | Status | Exit |
+|---|---|---|---|
+{chr(10).join(evidence_rows) if evidence_rows else "| None |  | pending |  |"}
+
+Structured results:
+
+- `docs/verify/verification-results.json`
+- `docs/verify/verification-results.md`
+"""
+    safe_write(matrix_path, content, force=True, actions=actions)
+
+
 def has_verify_failure(semgrep: CommandResult | None, native: list[CommandResult]) -> bool:
     results = ([semgrep] if semgrep else []) + native
     return any(item.status in {"failed", "timeout"} for item in results)
@@ -787,6 +861,7 @@ def main() -> int:
         else:
             actions.append("verify native: skipped no recognized commands")
     write_verification_results(target, request, semgrep_result, native_results, actions)
+    update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
 
     report = write_execution_report(target, request, actions, args.force)
     print(f"executed safe request setup: {request.name}")

@@ -21,6 +21,11 @@ claude-code-skills/
   ai-loop/                   # Loop step skill, default: LangGraph
   ai-verify/                 # Verify step skill, default: Semgrep
   ai-memory/                 # Memory step skill, default: Mem0
+claude-code-commands/
+  ai-start.md                # Claude Code slash command: initialize/inspect
+  ai-request.md              # Claude Code slash command: create managed request
+  ai-execute.md              # Claude Code slash command: execute safe setup
+  ai-verify.md               # Claude Code slash command: run explicit verification
 adapters/
   default-stack.json        # Default open-source framework choices
 presets/
@@ -120,6 +125,10 @@ CLAUDE.md
 .claude/skills/ai-loop/
 .claude/skills/ai-verify/
 .claude/skills/ai-memory/
+.claude/commands/ai-start.md
+.claude/commands/ai-request.md
+.claude/commands/ai-execute.md
+.claude/commands/ai-verify.md
 .codex/skills/ai-engineering-discipline/
 .codex/skills/ai-spec/
 .codex/skills/ai-loop/
@@ -138,13 +147,22 @@ docs/loops/bugfix-loop.md
 .github/pull_request_template.md
 ```
 
-After install, read `docs/AI_ENGINEERING_START_HERE.md`, then open the target project in Claude Code and say:
+After install, read `docs/AI_ENGINEERING_START_HERE.md`, then open the target project in Claude Code and run:
 
 ```text
-Use ai-engineering-discipline to inspect this project and enter development.
+/ai-start
 ```
 
-The Claude Code skill will:
+Claude Code slash commands are installed under `.claude/commands/`:
+
+```text
+/ai-start
+/ai-request --task feature --name "refund approval" --requirements docs/requirements/refund.md --risk medium
+/ai-execute
+/ai-verify
+```
+
+The Claude Code workflow will:
 
 1. ensure framework files exist;
 2. scan stack signals and candidate commands into `docs/memory/project-scan.md`;
@@ -241,6 +259,13 @@ Use scripts first; manual setup is only a fallback.
 3. Run `execute_request.py` to generate the safe working artifacts.
 4. Open Claude Code or Codex in the target project and use the generated spec, loop, verify plan, and memory plan.
 5. Track adoption with `data/metrics-schema.csv`.
+
+Claude Code users can use slash commands instead of remembering script paths:
+
+```text
+/ai-request --task feature --name "refund approval" --requirements docs/requirements/refund.md
+/ai-execute --run-native-checks
+```
 
 Minimum example:
 

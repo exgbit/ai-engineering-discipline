@@ -79,6 +79,7 @@ mkdir -p \
   "$TARGET_DIR/docs/memory" \
   "$TARGET_DIR/docs/loops" \
   "$TARGET_DIR/.github" \
+  "$TARGET_DIR/.claude/commands" \
   "$TARGET_DIR/.claude/skills" \
   "$TARGET_DIR/.codex/skills"
 
@@ -108,6 +109,12 @@ for skill_name in ai-engineering-discipline ai-spec ai-loop ai-verify ai-memory;
   install_skill_dir "$FRAMEWORK_ROOT/skills/$skill_name" "$TARGET_DIR/.codex/skills/$skill_name"
   install_skill_dir "$FRAMEWORK_ROOT/claude-code-skills/$skill_name" "$TARGET_DIR/.claude/skills/$skill_name"
 done
+
+if [[ -d "$FRAMEWORK_ROOT/claude-code-commands" ]]; then
+  for command_file in "$FRAMEWORK_ROOT"/claude-code-commands/*.md; do
+    copy_file "$command_file" "$TARGET_DIR/.claude/commands/$(basename "$command_file")"
+  done
+fi
 
 write_file_if_missing "$TARGET_DIR/docs/memory/project-rules.md" "Project Rules" \
 "- Add project-specific architecture and coding rules here.
@@ -141,5 +148,6 @@ echo "Bootstrap complete."
 echo "Next steps:"
 echo "  1. Read $TARGET_DIR/docs/AI_ENGINEERING_START_HERE.md"
 echo "  2. Open Claude Code in the target project."
-echo "  3. Say: Use ai-engineering-discipline to inspect this project and enter development."
-echo "  4. Review docs/adapters/default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status."
+echo "  3. Run: /ai-start"
+echo "  4. Create work with: /ai-request --task feature --name \"...\" --requirements docs/requirements/..."
+echo "  5. Review docs/adapters/default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status."

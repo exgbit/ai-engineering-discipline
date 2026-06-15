@@ -195,6 +195,15 @@ When asked to "implement", "fix", "refactor", or "build":
 8. Update memory if needed.
 9. Report evidence, risks, and changed files.
 
+## Claude Code Slash Commands
+
+When installed into a target project, prefer these Claude Code commands over free-form setup prompts:
+
+- `/ai-start`: initialize and inspect the repository.
+- `/ai-request --task feature --name "..." --requirements docs/requirements/...`: create a managed request.
+- `/ai-execute`: generate safe spec, loop, verify, memory, and execution artifacts.
+- `/ai-verify`: run explicit verification and write structured results.
+
 When asked to "write an article" or "prepare a report":
 
 1. Separate verified sources from user-provided signals.

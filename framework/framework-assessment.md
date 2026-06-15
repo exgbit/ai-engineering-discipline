@@ -40,7 +40,7 @@ This framework centralizes those decisions:
 
 - Integration is still workflow/file-protocol based, not deep SDK orchestration.
 - LangGraph loops are represented as runbooks; they are not yet generated as executable graphs.
-- Semgrep and native-check results are written to structured verification artifacts when explicit flags are used, but they are not yet merged into `test-matrix.md` row-by-row.
+- Semgrep and native-check results are written to structured verification artifacts and merged back into generated `test-matrix.md`; exact test-case mapping still needs project-specific evidence.
 - Mem0 is configured as the default memory adapter, but memory writes still default to local Markdown unless a preset enables `mem0_write`.
 - Presets cover common task/risk combinations, not every company policy.
 - `execute_request.py` intentionally avoids business code changes and external tool execution by default.
@@ -64,7 +64,7 @@ Use a four-week pilot before making claims about impact.
 
 ## Recommended Next Optimizations
 
-1. Merge structured Semgrep/native-check results into `test-matrix.md` row-by-row.
+1. Add exact requirement-to-test mapping instead of global verification status propagation.
 2. Add a LangGraph graph generator for common runbooks.
 3. Add richer policy controls for which native commands are allowed per company.
 4. Add optional Mem0 write/read commands gated by preset policy.

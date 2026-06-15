@@ -20,7 +20,7 @@ python -m pip install --user semgrep
 Run:
 
 ```bash
-semgrep scan --config auto
+semgrep scan --config auto --json .
 ```
 
 ## Required Native Verification

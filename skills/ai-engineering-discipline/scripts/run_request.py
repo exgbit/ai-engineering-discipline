@@ -267,8 +267,8 @@ def main() -> int:
 
     print(f"wrote: {request_path}")
     print()
-    print("Next command in Claude Code or Codex:")
-    print("Use ai-engineering-discipline to execute docs/ai-engineering/current-request.md.")
+    print("Next command:")
+    print(f"python {skill_script('execute_request.py')} {target}")
     return 0
 
 

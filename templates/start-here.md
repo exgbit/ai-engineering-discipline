@@ -4,6 +4,21 @@ This project uses one integrated AI engineering workflow.
 
 You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator through a managed request.
 
+## Claude Code Commands
+
+If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstrap.bat`, use:
+
+```text
+/ai-start
+/ai-request --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium
+/ai-execute
+/ai-verify
+```
+
+These commands live in `.claude/commands/` and call the installed `.claude/skills/ai-engineering-discipline/scripts/` helpers.
+
+Equivalent script command:
+
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
   --task feature \

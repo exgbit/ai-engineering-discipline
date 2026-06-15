@@ -279,6 +279,19 @@ This project uses one integrated AI engineering workflow.
 
 You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator:
 
+## Claude Code Commands
+
+```text
+/ai-start
+/ai-request --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium
+/ai-execute
+/ai-verify
+```
+
+These commands live in `.claude/commands/` and call the installed `.claude/skills/ai-engineering-discipline/scripts/` helpers.
+
+Equivalent prompt:
+
 ```text
 Use ai-engineering-discipline to inspect this project and enter development.
 ```
@@ -303,6 +316,97 @@ Use ai-engineering-discipline.
 I already have requirement documents.
 Import them into specs, create a requirements index, select the first implementation loop, and do not code until the spec and loop are ready.
 ```
+"""
+
+
+AI_START_COMMAND = """# AI Engineering Start
+
+Initialize and inspect this repository for the Spec / Loop / Verify / Memory workflow.
+
+From the repository root, first check that this file exists:
+
+```text
+.claude/skills/ai-engineering-discipline/scripts/init_project.py
+```
+
+If it does not exist, stop and tell the user to run the framework bootstrap script first.
+
+If it exists, run:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/init_project.py .
+python .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .
+```
+
+Then read `docs/AI_ENGINEERING_START_HERE.md`, `docs/memory/project-scan.md`, and `CLAUDE.md`.
+Summarize the detected stack, candidate verification commands, and next managed-request command. Do not modify business code.
+"""
+
+
+AI_REQUEST_COMMAND = """# AI Engineering Request
+
+Create a managed AI engineering request from the provided arguments.
+
+From the repository root, first check that this file exists:
+
+```text
+.claude/skills/ai-engineering-discipline/scripts/run_request.py
+```
+
+If it does not exist, stop and tell the user to run the framework bootstrap script first.
+
+If it exists, run:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . $ARGUMENTS
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
+```
+
+Read `docs/ai-engineering/current-request.md` and `docs/ai-engineering/execution-report.md`, then summarize the generated spec, loop, verify plan, and memory plan. Do not implement business code unless the request allows execution and the spec/loop are ready.
+"""
+
+
+AI_EXECUTE_COMMAND = """# AI Engineering Execute
+
+Execute the current managed request safely.
+
+From the repository root, first check that this file exists:
+
+```text
+.claude/skills/ai-engineering-discipline/scripts/execute_request.py
+```
+
+If it does not exist, stop and tell the user to run the framework bootstrap script first.
+
+If it exists, run:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . $ARGUMENTS
+```
+
+Read `docs/ai-engineering/execution-report.md` and the generated spec, loop, verify, and memory artifacts. If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
+"""
+
+
+AI_VERIFY_COMMAND = """# AI Engineering Verify
+
+Run explicit verification for the current managed request and write structured evidence.
+
+From the repository root, first check that this file exists:
+
+```text
+.claude/skills/ai-engineering-discipline/scripts/execute_request.py
+```
+
+If it does not exist, stop and tell the user to run the framework bootstrap script first.
+
+If it exists, run this default command:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
+```
+
+Use `--fail-on-verify-failure` only when the user wants a non-zero exit after results are written. Summarize pass/fail/skipped checks, residual risk, and whether implementation or PR review can proceed.
 """
 
 
@@ -392,6 +496,10 @@ FILES = {
     "docs/loops/loop-template.md": LOOP_TEMPLATE,
     "docs/loops/bugfix-loop.md": BUGFIX_LOOP,
     ".github/pull_request_template.md": PR_TEMPLATE,
+    ".claude/commands/ai-start.md": AI_START_COMMAND,
+    ".claude/commands/ai-request.md": AI_REQUEST_COMMAND,
+    ".claude/commands/ai-execute.md": AI_EXECUTE_COMMAND,
+    ".claude/commands/ai-verify.md": AI_VERIFY_COMMAND,
 }
 
 
