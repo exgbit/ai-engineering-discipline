@@ -4,3 +4,5 @@ date,source_or_project,signal_type,core_mechanism,mapped_pillar,notes,source_url
 2026-Q2,Warp SDD,methodology_signal,two-layer specification driven development,Spec,"User-provided signal; verify source before public citation.",,unverified
 2026-Q2,Addy Osmani,methodology_signal,verify gate and anti-rationalization checklist,Verify,"User-provided signal; verify source before public citation.",,unverified
 2026-Q2,Internal Framework,derived_principle,spec verify memory as minimum AI coding discipline,Memory,"Use as internal synthesis, not external factual citation.",,internal
+2026-Q2,Loop Engineering,user_provided_signal,write loops that repeatedly prompt and verify agents,Loop,"User-provided image signal; treat as thesis until primary sources are added.",,unverified
+2026-Q2,Claude Code Loop Tools,user_provided_signal,community tools package agent loops safety exits and memory,Loop,"User-provided image lists gnhf ralph-claude-code OpenCove octogent dmux agent-flow disler hooks claudelaw and prompt-improver; source links needed.",,unverified

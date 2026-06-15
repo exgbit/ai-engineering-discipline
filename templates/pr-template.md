@@ -27,6 +27,14 @@
 - [ ] Security check:
 - [ ] Manual validation:
 
+## Loop Evidence
+
+- [ ] No loop used
+- [ ] Existing loop used:
+- [ ] New loop introduced or updated:
+- Exit condition reached:
+- Retry / escalation notes:
+
 ## Risk and Rollback
 
 - 风险：
@@ -47,3 +55,4 @@
 - [ ] 没有越过模块边界
 - [ ] 没有用解释替代证据
 - [ ] 配置、文档、迁移同步更新
+- [ ] loop 没有越过 scope、budget 或 approval gate

@@ -9,6 +9,7 @@
 交付物：
 
 - 创建 `docs/specs/`、`docs/verify/`、`docs/memory/`。
+- 创建 `docs/loops/`，先记录人工 checklist loop。
 - 引入 `spec-template.md`、`pr-template.md`、`verify-checklist.md`。
 - 为一个核心业务流程建立 `test-matrix.md`。
 - 记录试点前基线数据：PR 数、返工率、缺陷数、review 轮次、构建失败率。
@@ -38,6 +39,7 @@
 - 建立 `project-rules.md`、`module-map.md`、`pitfalls.md`。
 - 汇总最近 10 个 bug / 返工案例，提炼反模式。
 - 建立高频任务 prompt 或 agent instruction。
+- 选择 1 个重复任务，写成 loop runbook。
 
 验收：
 
@@ -65,4 +67,5 @@
 - 模板稳定，团队能独立使用。
 - Verify gate 不显著拖慢小需求交付。
 - Memory 文件每周有人维护。
+- 至少一个常用任务已经从 prompt 升级为 loop。
 - 指标显示返工率或缺陷率下降。

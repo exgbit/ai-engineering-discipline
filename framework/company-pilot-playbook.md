@@ -20,6 +20,7 @@ Avoid starting with a deeply unstable project. The framework should improve engi
 
 - [ ] Pick pilot project and owner.
 - [ ] Create `docs/specs/`, `docs/verify/`, and `docs/memory/`.
+- [ ] Create `docs/loops/` for repeatable agent workflows.
 - [ ] Copy templates into the project.
 - [ ] Define AI-assisted PR labeling rules.
 - [ ] Record baseline metrics for the previous 2-4 weeks.
@@ -50,6 +51,8 @@ Track these metrics weekly:
 - main branch failure rate;
 - escaped defects;
 - memory update rate.
+- loop success rate;
+- loop wall-time and token budget.
 
 ## Decision After Four Weeks
 

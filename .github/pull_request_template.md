@@ -11,6 +11,7 @@ Explain which AI engineering problem this solves.
 - [ ] Spec
 - [ ] Verify
 - [ ] Memory
+- [ ] Loop
 - [ ] Metrics / Adoption
 
 # Verification
@@ -19,6 +20,7 @@ Explain which AI engineering problem this solves.
 - [ ] Example data marked synthetic or sourced
 - [ ] Templates remain tool-neutral
 - [ ] README or related docs updated
+- [ ] Loop changes include exit conditions, retry budget, and escalation path
 
 # Risks
 

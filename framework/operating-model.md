@@ -9,6 +9,7 @@
 | Developer | 使用 AI 实现、补测试、提交验证证据、更新 memory |
 | Reviewer | 审查代码、验证证据、需求一致性和反合理化风险 |
 | AI Agent | 生成初稿、补测试、做检查、整理文档；不承担最终责任 |
+| Loop Owner | 维护常用 agent loop 的状态机、验证门、预算和失败复盘 |
 
 ## Required Project Files
 
@@ -21,6 +22,7 @@ docs/verify/release-checklist.md
 docs/memory/project-rules.md
 docs/memory/module-map.md
 docs/memory/pitfalls.md
+docs/loops/
 AGENTS.md
 ```
 
@@ -28,11 +30,12 @@ AGENTS.md
 
 1. Product Owner or Developer creates a spec.
 2. Tech Lead approves scope for medium or high-risk changes.
-3. Developer uses AI to plan and implement.
-4. Developer runs verify checklist.
-5. Reviewer checks both diff and evidence.
-6. Developer updates memory if the change adds new rules or lessons.
-7. PR merges only after all required gates pass.
+3. Developer selects or creates a loop for repeated work.
+4. Developer uses AI to plan and implement within loop scope.
+5. Developer runs verify checklist.
+6. Reviewer checks both diff and evidence.
+7. Developer updates memory if the change adds new rules or lessons.
+8. PR merges only after all required gates pass.
 
 ## Governance Rules
 
@@ -41,3 +44,4 @@ AGENTS.md
 - Any repeated issue must become a memory entry.
 - Any cross-module change must update design docs or ADR.
 - Any skipped test must include owner, reason, risk, and follow-up date.
+- Any loop must define success exit, failure exit, retry budget, and escalation path.

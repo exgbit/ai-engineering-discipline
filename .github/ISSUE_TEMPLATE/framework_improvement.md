@@ -19,6 +19,7 @@ What should be added, removed, or changed?
 - [ ] Spec
 - [ ] Verify
 - [ ] Memory
+- [ ] Loop
 - [ ] Metrics / Adoption
 
 ## Evidence

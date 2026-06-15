@@ -33,8 +33,17 @@ Use this scorecard weekly during the pilot. Score each item from 0 to 2.
 | Repeated review issues become memory entries |  |
 | Incidents update pitfalls or ADRs |  |
 
+## Loop
+
+| Item | Score |
+|---|---|
+| Repeated tasks have loop runbooks |  |
+| Loops define success and failure exits |  |
+| Loops track retry, escalation, and budget |  |
+| Loops write back useful memory |  |
+
 ## Interpretation
 
-- `0-8`: AI coding is mostly unmanaged.
-- `9-16`: partial discipline exists, but quality depends on individuals.
-- `17-24`: team has a repeatable AI-assisted development system.
+- `0-10`: AI coding is mostly unmanaged.
+- `11-22`: partial discipline exists, but quality depends on individuals.
+- `23-32`: team has a repeatable AI-assisted development system.

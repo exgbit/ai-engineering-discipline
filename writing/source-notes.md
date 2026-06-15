@@ -31,6 +31,20 @@ These items should not be written as hard public facts until original pages, rep
 | ai-devkit: 5 道工程门户 | unverified | Mention as "engineering gate direction" only if source is added |
 | Warp SDD: 双层规格 | unverified | Mention as "spec-driven development direction" only if source is added |
 | Addy Osmani: verify gate + anti-rationalization | unverified | Mention as "verification and anti-rationalization direction" only if source is added |
+| Loop Engineering: prompt agent -> design loops that prompt agents | unverified | Use as article thesis, not as verified industry consensus |
+| Claude Code loop tools: gnhf, ralph-claude-code, OpenCove, octogent, dmux, agent-flow, disler hooks, claudelaw, prompt-improver | unverified | Use as a research backlog; add GitHub links and star counts before citing |
+
+## Loop Engineering Thesis From User Image
+
+The image argues that prompt engineering is giving way to loop engineering:
+
+- Do not keep prompting the agent manually.
+- Design loops that repeatedly prompt, verify, retry, and stop the agent.
+- Treat the LLM as a stateless function.
+- Treat the real product surface as an orchestration layer: state machine, policy, verification, budget, and memory.
+- The practical role shifts from "prompt engineer" to "agent loop architect".
+
+Use this as the conceptual bridge from `Spec / Verify / Memory` to `Loop Engineering`.
 
 ## Article Safety Rule
 
@@ -40,3 +54,4 @@ Before publishing externally:
 2. Do not use "同日推出" unless every timestamp is verified.
 3. Do not use synthetic sample metrics as evidence of industry impact.
 4. If company pilot data is unavailable, frame the article as a framework proposal, not a proven case study.
+5. Do not cite tool star counts from screenshots unless checked against live GitHub pages.

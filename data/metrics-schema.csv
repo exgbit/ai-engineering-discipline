@@ -7,3 +7,7 @@ main_branch_failure_rate,Percentage of main branch builds that fail,CI history,d
 escaped_defects,Production bugs linked to AI-assisted changes,Incident review,downward trend,monthly
 memory_update_rate,Percentage of qualifying PRs that update memory docs,PR checklist audit,>=70%,weekly
 repeat_review_comment_rate,Repeated comments on same class of issue,Review comment tagging,downward trend,monthly
+loop_success_rate,Percentage of loop runs that complete with verified evidence,Loop run logs or PR metadata,>=80%,weekly
+loop_retry_rate,Average retries per loop run,Loop run logs,downward trend,weekly
+loop_escalation_rate,Percentage of loop runs escalated to human review,Loop run logs,healthy bounded range,weekly
+loop_budget_overrun_rate,Percentage of loop runs exceeding token wall-time or cost budget,Loop run logs,<=10%,weekly

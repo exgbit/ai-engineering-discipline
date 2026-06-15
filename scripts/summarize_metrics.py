@@ -13,6 +13,9 @@ RATE_FIELDS = {
     "test_traceability_rate",
     "main_branch_failure_rate",
     "memory_update_rate",
+    "loop_success_rate",
+    "loop_escalation_rate",
+    "loop_budget_overrun_rate",
 }
 
 
@@ -58,6 +61,10 @@ def main() -> int:
         "main_branch_failure_rate",
         "escaped_defects",
         "memory_update_rate",
+        "loop_success_rate",
+        "loop_retry_rate",
+        "loop_escalation_rate",
+        "loop_budget_overrun_rate",
     ]
 
     print("# Pilot Metrics Summary")
@@ -68,6 +75,8 @@ def main() -> int:
     print("| Metric | Baseline | Latest | Delta |")
     print("|---|---:|---:|---:|")
     for field in fields:
+        if field not in baseline or field not in latest:
+            continue
         start = parse_float(baseline[field])
         end = parse_float(latest[field])
         delta = end - start
