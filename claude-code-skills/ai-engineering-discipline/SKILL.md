@@ -73,6 +73,17 @@ python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 
 This creates generated spec, loop, verify, memory-plan, and execution-report files. It does not edit business code or run destructive tools.
 
+Use explicit verification flags only when requested or when the user has approved local checks:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-semgrep
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks
+```
+
+Write results to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
+
+Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written.
+
 ## Initialize a Project
 
 If the current directory is the target project:
@@ -117,6 +128,7 @@ Before implementation:
 3. Use `ai-loop` to choose or create the execution loop.
 4. Read relevant files in `docs/specs/`, `docs/memory/`, and `docs/loops/`.
 5. For managed requests, run `scripts/execute_request.py` first so `current-request.md` becomes concrete artifacts.
+6. If verification flags are enabled, read `docs/verify/verification-results.json` as the structured evidence source.
 
 During implementation:
 

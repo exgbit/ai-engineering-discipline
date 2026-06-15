@@ -194,6 +194,17 @@ python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 
 This creates or updates generated spec, loop, verify, memory-plan, and execution-report artifacts. It does not edit business code, install packages, run destructive commands, or claim implementation success.
 
+To run explicit verification and write structured results:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-semgrep
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks
+```
+
+Results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Semgrep raw JSON is saved as `docs/verify/semgrep-results.json` when Semgrep runs successfully. Native checks are limited to detected local test, lint, typecheck, and required build commands.
+
+For CI-style usage, add `--fail-on-verify-failure` after the results are written.
+
 For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`.
 
 ## Default Open-Source Adapter Stack
@@ -237,6 +248,7 @@ Minimum example:
 ./scripts/bootstrap.sh /path/to/project
 python scripts/run_request.py /path/to/project --task feature --name "refund approval" --requirements /path/to/refund.md
 python scripts/execute_request.py /path/to/project
+python scripts/execute_request.py /path/to/project --run-native-checks --run-semgrep
 ```
 
 ## If Requirements Already Exist

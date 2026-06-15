@@ -7,6 +7,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = "<!-- ai-engineering:generated -->"
+DEFAULT_TIMEOUT_SECONDS = 600
+OUTPUT_LIMIT = 12000
 
 
 @dataclass
@@ -34,6 +37,18 @@ class ManagedRequest:
     loop_params: dict[str, object]
     verify_params: dict[str, object]
     memory_params: dict[str, object]
+
+
+@dataclass
+class CommandResult:
+    name: str
+    command: list[str]
+    status: str
+    exit_code: int | None
+    duration_seconds: float
+    stdout: str
+    stderr: str
+    output_path: str | None = None
 
 
 def skill_script(name: str) -> Path | None:
@@ -160,6 +175,13 @@ def safe_write(path: Path, content: str, force: bool, actions: list[str]) -> Non
             actions.append(f"skip human file: {path}")
             return
     path.write_text(body, encoding="utf-8")
+    actions.append(f"write: {path}")
+
+
+def write_json_artifact(path: Path, payload: dict[str, object], actions: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"generated_by": "ai-engineering-discipline", **payload}
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     actions.append(f"write: {path}")
 
 
@@ -400,6 +422,8 @@ Spec: `{rel(request.spec_path, target)}`
 ## Evidence Log
 
 - Pending. Run implementation checks after code changes.
+- Optional structured results: `docs/verify/verification-results.json`
+- Optional readable results: `docs/verify/verification-results.md`
 """
     safe_write(plan, content, force, actions)
 
@@ -440,6 +464,254 @@ def run_script_if_available(name: str, target: Path, actions: list[str]) -> None
         actions.append(f"failed: {name}: {result.stderr.strip() or result.stdout.strip()}")
 
 
+def truncate_output(value: str, limit: int = OUTPUT_LIMIT) -> str:
+    if len(value) <= limit:
+        return value
+    return value[:limit].rstrip() + "\n[truncated]"
+
+
+def command_to_text(command: list[str]) -> str:
+    return " ".join(command)
+
+
+def command_available(command: list[str], target: Path) -> bool:
+    if not command:
+        return False
+    executable = command[0]
+    if executable.startswith("./"):
+        return (target / executable[2:]).exists()
+    return shutil.which(executable) is not None
+
+
+def run_command(name: str, command: list[str], target: Path, timeout: int) -> CommandResult:
+    started = dt.datetime.now()
+    if not command_available(command, target):
+        return CommandResult(
+            name=name,
+            command=command,
+            status="skipped",
+            exit_code=None,
+            duration_seconds=0.0,
+            stdout="",
+            stderr=f"Command not available: {command[0] if command else '<empty>'}",
+        )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=target,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+        duration = (dt.datetime.now() - started).total_seconds()
+        return CommandResult(
+            name=name,
+            command=command,
+            status="passed" if result.returncode == 0 else "failed",
+            exit_code=result.returncode,
+            duration_seconds=round(duration, 3),
+            stdout=truncate_output(result.stdout),
+            stderr=truncate_output(result.stderr),
+        )
+    except subprocess.TimeoutExpired as exc:
+        duration = (dt.datetime.now() - started).total_seconds()
+        return CommandResult(
+            name=name,
+            command=command,
+            status="timeout",
+            exit_code=None,
+            duration_seconds=round(duration, 3),
+            stdout=truncate_output(exc.stdout or ""),
+            stderr=truncate_output(exc.stderr or f"Timed out after {timeout} seconds."),
+        )
+
+
+def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[str, list[str]]]:
+    commands: list[tuple[str, list[str]]] = []
+    package_json = target / "package.json"
+    if package_json.exists():
+        try:
+            data = json.loads(package_json.read_text(encoding="utf-8"))
+            scripts = data.get("scripts", {})
+            if isinstance(scripts, dict):
+                for name in ["lint", "typecheck", "test"]:
+                    if name in scripts:
+                        commands.append((f"npm:{name}", ["npm", "run", name]))
+                if request.verify_params.get("require_build") and "build" in scripts:
+                    commands.append(("npm:build", ["npm", "run", "build"]))
+        except json.JSONDecodeError:
+            commands.append(("npm:test", ["npm", "test"]))
+
+    if (target / "go.mod").exists():
+        commands.append(("go:test", ["go", "test", "./..."]))
+
+    if (target / "pyproject.toml").exists() or (target / "requirements.txt").exists() or (target / "pytest.ini").exists():
+        commands.append(("python:pytest", ["pytest"]))
+
+    if (target / "Cargo.toml").exists():
+        commands.append(("rust:cargo-test", ["cargo", "test"]))
+
+    if (target / "pom.xml").exists():
+        commands.append(("java:mvn-test", ["mvn", "test"]))
+
+    if (target / "build.gradle").exists() or (target / "build.gradle.kts").exists():
+        if (target / "gradlew").exists():
+            commands.append(("java:gradle-test", ["./gradlew", "test"]))
+        else:
+            commands.append(("java:gradle-test", ["gradle", "test"]))
+
+    return commands
+
+
+def semgrep_command(request: ManagedRequest) -> list[str]:
+    config = request.verify_params.get("semgrep_config", "auto")
+    if not isinstance(config, str) or not config:
+        config = "auto"
+    return ["semgrep", "--config", config, "--json", "."]
+
+
+def parse_semgrep_summary(raw_output: str) -> dict[str, object]:
+    try:
+        data = json.loads(raw_output) if raw_output.strip() else {}
+    except json.JSONDecodeError:
+        return {"parse_error": True, "findings": 0, "errors": 0, "severity_counts": {}}
+    results = data.get("results", []) if isinstance(data, dict) else []
+    errors = data.get("errors", []) if isinstance(data, dict) else []
+    severity_counts: dict[str, int] = {}
+    if isinstance(results, list):
+        for item in results:
+            if not isinstance(item, dict):
+                continue
+            extra = item.get("extra", {})
+            severity = "unknown"
+            if isinstance(extra, dict):
+                severity = str(extra.get("severity", "unknown")).lower()
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+    return {
+        "parse_error": False,
+        "findings": len(results) if isinstance(results, list) else 0,
+        "errors": len(errors) if isinstance(errors, list) else 0,
+        "severity_counts": severity_counts,
+    }
+
+
+def run_semgrep(target: Path, request: ManagedRequest, timeout: int, actions: list[str]) -> CommandResult:
+    result = run_command("semgrep", semgrep_command(request), target, timeout)
+    output_file = target / "docs" / "verify" / "semgrep-results.json"
+    if result.status in {"passed", "failed"} and result.stdout.strip():
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(result.stdout, encoding="utf-8")
+        result.output_path = rel(output_file, target)
+        actions.append(f"write: {output_file}")
+    return result
+
+
+def result_to_dict(result: CommandResult) -> dict[str, object]:
+    return {
+        "name": result.name,
+        "command": result.command,
+        "status": result.status,
+        "exit_code": result.exit_code,
+        "duration_seconds": result.duration_seconds,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "output_path": result.output_path,
+    }
+
+
+def write_verification_results(
+    target: Path,
+    request: ManagedRequest,
+    semgrep: CommandResult | None,
+    native: list[CommandResult],
+    actions: list[str],
+) -> None:
+    if semgrep is None and not native:
+        return
+    verify_dir = target / "docs" / "verify"
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    semgrep_summary = parse_semgrep_summary(semgrep.stdout) if semgrep else None
+    payload: dict[str, object] = {
+        "created": now,
+        "request": {
+            "name": request.name,
+            "task": request.task,
+            "preset": request.preset,
+            "risk": request.risk,
+        },
+        "semgrep": result_to_dict(semgrep) if semgrep else None,
+        "semgrep_summary": semgrep_summary,
+        "native_checks": [result_to_dict(item) for item in native],
+    }
+    write_json_artifact(verify_dir / "verification-results.json", payload, actions)
+
+    lines = [
+        f"# Verification Results: {request.name}",
+        "",
+        f"Created: {now}",
+        "",
+        "## Summary",
+        "",
+        "| Check | Status | Exit | Duration |",
+        "|---|---|---|---|",
+    ]
+    if semgrep:
+        lines.append(f"| semgrep | {semgrep.status} | {semgrep.exit_code if semgrep.exit_code is not None else ''} | {semgrep.duration_seconds}s |")
+    for item in native:
+        lines.append(f"| {item.name} | {item.status} | {item.exit_code if item.exit_code is not None else ''} | {item.duration_seconds}s |")
+    if semgrep_summary:
+        lines.extend([
+            "",
+            "## Semgrep Summary",
+            "",
+            f"- Command: `{command_to_text(semgrep.command) if semgrep else ''}`",
+            f"- Status: `{semgrep.status if semgrep else ''}`",
+            f"- Findings: `{semgrep_summary.get('findings')}`",
+            f"- Errors: `{semgrep_summary.get('errors')}`",
+            f"- Severity counts: `{json.dumps(semgrep_summary.get('severity_counts', {}), ensure_ascii=False)}`",
+        ])
+        if semgrep and semgrep.output_path:
+            lines.append(f"- Raw JSON: `{semgrep.output_path}`")
+        if semgrep and semgrep.stderr:
+            lines.extend([
+                "",
+                "```text",
+                semgrep.stderr.strip(),
+                "```",
+            ])
+    lines.extend(["", "## Native Check Commands", ""])
+    if native:
+        for item in native:
+            lines.extend([
+                f"### {item.name}",
+                "",
+                f"- Command: `{command_to_text(item.command)}`",
+                f"- Status: `{item.status}`",
+                f"- Exit code: `{item.exit_code if item.exit_code is not None else ''}`",
+                "",
+                "```text",
+                (item.stdout or item.stderr or "No output.").strip(),
+                "```",
+                "",
+            ])
+    else:
+        lines.append("- None run.")
+    safe_write(verify_dir / "verification-results.md", "\n".join(lines), force=True, actions=actions)
+
+    plan = verify_dir / "current-request-verify.md"
+    if plan.exists():
+        plan_text = plan.read_text(encoding="utf-8")
+        summary_line = f"- Structured results written at `{now}`: `docs/verify/verification-results.json`, `docs/verify/verification-results.md`"
+        if summary_line not in plan_text:
+            plan.write_text(plan_text.rstrip() + "\n" + summary_line + "\n", encoding="utf-8")
+            actions.append(f"update: {plan}")
+
+
+def has_verify_failure(semgrep: CommandResult | None, native: list[CommandResult]) -> bool:
+    results = ([semgrep] if semgrep else []) + native
+    return any(item.status in {"failed", "timeout"} for item in results)
+
+
 def write_execution_report(target: Path, request: ManagedRequest, actions: list[str], force: bool) -> Path:
     report = target / "docs" / "ai-engineering" / "execution-report.md"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -464,7 +736,7 @@ def write_execution_report(target: Path, request: ManagedRequest, actions: list[
         "",
         "## Next Human/Agent Step",
         "",
-        "Review the generated spec, loop, and verify plan. Implementation may start only after the spec and loop are accepted.",
+        "Review the generated spec, loop, verify plan, and any structured verification results. Implementation may start only after the spec and loop are accepted.",
     ])
     safe_write(report, "\n".join(content), force=True if force else True, actions=[])
     return report
@@ -476,11 +748,10 @@ def main() -> int:
     parser.add_argument("--request", help="Managed request path. Defaults to docs/ai-engineering/current-request.md.")
     parser.add_argument("--force", action="store_true", help="Overwrite generated artifacts.")
     parser.add_argument("--skip-init", action="store_true", help="Do not run init_project.py or inspect_project.py.")
-    parser.add_argument(
-        "--run-tools",
-        action="store_true",
-        help="Reserved for future safe tool execution. Current version only writes setup artifacts.",
-    )
+    parser.add_argument("--run-semgrep", action="store_true", help="Run Semgrep and write structured results to docs/verify/.")
+    parser.add_argument("--run-native-checks", action="store_true", help="Run detected native test/lint/typecheck/build commands.")
+    parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="Timeout per verification command.")
+    parser.add_argument("--fail-on-verify-failure", action="store_true", help="Exit non-zero after writing results if any verification command fails or times out.")
     args = parser.parse_args()
 
     target = Path(args.target).expanduser().resolve()
@@ -501,14 +772,29 @@ def main() -> int:
     write_verify_artifacts(target, request, args.force, actions)
     write_memory_plan(target, request, args.force, actions)
 
-    if args.run_tools:
-        actions.append("skip tools: no external safe tool runner is enabled in this version")
+    semgrep_result = None
+    native_results: list[CommandResult] = []
+    if args.run_semgrep:
+        semgrep_result = run_semgrep(target, request, args.timeout_seconds, actions)
+        actions.append(f"verify semgrep: {semgrep_result.status}")
+    if args.run_native_checks:
+        native_commands = detect_native_commands(target, request)
+        if native_commands:
+            for name, command in native_commands:
+                result = run_command(name, command, target, args.timeout_seconds)
+                native_results.append(result)
+                actions.append(f"verify {name}: {result.status}")
+        else:
+            actions.append("verify native: skipped no recognized commands")
+    write_verification_results(target, request, semgrep_result, native_results, actions)
 
     report = write_execution_report(target, request, actions, args.force)
     print(f"executed safe request setup: {request.name}")
     print(f"report: {report}")
     for action in actions:
         print(action)
+    if args.fail_on_verify_failure and has_verify_failure(semgrep_result, native_results):
+        return 1
     return 0
 
 

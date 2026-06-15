@@ -63,6 +63,17 @@ python <skill_dir>/scripts/execute_request.py .
 
 This creates generated spec, loop, verify, memory-plan, and execution-report files. It does not edit business code or run destructive tools.
 
+Use explicit verification flags only when requested or when the user has approved local checks:
+
+```bash
+python <skill_dir>/scripts/execute_request.py . --run-semgrep
+python <skill_dir>/scripts/execute_request.py . --run-native-checks
+```
+
+Write results to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
+
+Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written.
+
 ## Quick Start
 
 When the user asks to initialize a project, run:
@@ -141,6 +152,8 @@ Spec -> Loop -> Verify -> Memory
 - Update memory only with durable lessons learned during the task.
 
 For managed requests, prefer `scripts/execute_request.py` before implementation. It converts `docs/ai-engineering/current-request.md` into concrete generated artifacts, so the agent does not need to reinterpret low-level framework parameters.
+
+If verification flags are enabled, treat `docs/verify/verification-results.json` as the structured evidence source and `docs/verify/verification-results.md` as the review summary.
 
 ### 5. Install Default Open-Source Adapters
 

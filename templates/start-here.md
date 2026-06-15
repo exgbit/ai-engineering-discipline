@@ -99,3 +99,12 @@ After creating a managed request, execute safe setup:
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
+
+Optional explicit verification:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks
+python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-semgrep
+```
+
+Verification results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
