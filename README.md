@@ -15,6 +15,8 @@ AI 编程必须具备三件套，并通过 loop 跑起来：
 
 ```text
 CLAUDE.md                    # Agent operating protocol
+claude-code-skills/
+  ai-engineering-discipline/ # Claude Code skill package
 framework/
   spec-verify-memory.md     # 核心框架
   loop-engineering.md       # Loop Engineering 执行模型
@@ -41,7 +43,7 @@ scripts/
   bootstrap.bat             # Windows 项目安装脚本
   summarize_metrics.py      # 指标摘要脚本
 skills/
-  ai-engineering-discipline/ # Claude/Codex skill for project initialization and operation
+  ai-engineering-discipline/ # Codex skill package
 writing/
   source-notes.md           # 发布前来源核验
   article-brief.md          # 文章策划
@@ -81,6 +83,7 @@ The installer creates:
 ```text
 CLAUDE.md
 .claude/skills/ai-engineering-discipline/
+.codex/skills/ai-engineering-discipline/
 docs/specs/spec-template.md
 docs/verify/verify-checklist.md
 docs/verify/test-matrix.md
@@ -99,7 +102,7 @@ After install, open the target project in Claude Code and say:
 Use ai-engineering-discipline to inspect this project and enter development.
 ```
 
-The skill will:
+The Claude Code skill will:
 
 1. ensure framework files exist;
 2. scan stack signals and candidate commands into `docs/memory/project-scan.md`;

@@ -69,7 +69,8 @@ mkdir -p \
   "$TARGET_DIR/docs/memory" \
   "$TARGET_DIR/docs/loops" \
   "$TARGET_DIR/.github" \
-  "$TARGET_DIR/.claude/skills"
+  "$TARGET_DIR/.claude/skills" \
+  "$TARGET_DIR/.codex/skills"
 
 copy_file "$FRAMEWORK_ROOT/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
 copy_file "$FRAMEWORK_ROOT/templates/spec-template.md" "$TARGET_DIR/docs/specs/spec-template.md"
@@ -80,14 +81,24 @@ copy_file "$FRAMEWORK_ROOT/templates/pr-template.md" "$TARGET_DIR/.github/pull_r
 copy_file "$FRAMEWORK_ROOT/examples/test-matrix.example.md" "$TARGET_DIR/docs/verify/test-matrix.md"
 copy_file "$FRAMEWORK_ROOT/examples/loop-runbook.example.md" "$TARGET_DIR/docs/loops/bugfix-loop.md"
 
-SKILL_SRC="$FRAMEWORK_ROOT/skills/ai-engineering-discipline"
-SKILL_DST="$TARGET_DIR/.claude/skills/ai-engineering-discipline"
-if [[ -d "$SKILL_DST" && "$FORCE" != "1" ]]; then
-  echo "skip existing: $SKILL_DST"
+CODEX_SKILL_SRC="$FRAMEWORK_ROOT/skills/ai-engineering-discipline"
+CODEX_SKILL_DST="$TARGET_DIR/.codex/skills/ai-engineering-discipline"
+if [[ -d "$CODEX_SKILL_DST" && "$FORCE" != "1" ]]; then
+  echo "skip existing: $CODEX_SKILL_DST"
 else
-  mkdir -p "$SKILL_DST"
-  cp -R "$SKILL_SRC/." "$SKILL_DST/"
-  echo "installed: $SKILL_DST"
+  mkdir -p "$CODEX_SKILL_DST"
+  cp -R "$CODEX_SKILL_SRC/." "$CODEX_SKILL_DST/"
+  echo "installed: $CODEX_SKILL_DST"
+fi
+
+CLAUDE_SKILL_SRC="$FRAMEWORK_ROOT/claude-code-skills/ai-engineering-discipline"
+CLAUDE_SKILL_DST="$TARGET_DIR/.claude/skills/ai-engineering-discipline"
+if [[ -d "$CLAUDE_SKILL_DST" && "$FORCE" != "1" ]]; then
+  echo "skip existing: $CLAUDE_SKILL_DST"
+else
+  mkdir -p "$CLAUDE_SKILL_DST"
+  cp -R "$CLAUDE_SKILL_SRC/." "$CLAUDE_SKILL_DST/"
+  echo "installed: $CLAUDE_SKILL_DST"
 fi
 
 write_file_if_missing "$TARGET_DIR/docs/memory/project-rules.md" "Project Rules" \
