@@ -33,6 +33,10 @@ examples/
   test-matrix.example.md    # 需求到测试映射示例
 scripts/
   summarize_metrics.py      # 指标摘要脚本
+writing/
+  source-notes.md           # 发布前来源核验
+  article-brief.md          # 文章策划
+  article-draft.md          # 中文文章草案
 ```
 
 ## How To Use
