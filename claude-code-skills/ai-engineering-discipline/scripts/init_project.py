@@ -273,6 +273,39 @@ TEST_MATRIX = """# Test Matrix
 """
 
 
+START_HERE = """# AI Engineering Start Here
+
+This project uses one integrated AI engineering workflow.
+
+You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator:
+
+```text
+Use ai-engineering-discipline to inspect this project and enter development.
+```
+
+## What Happens Behind the Scenes
+
+```text
+Spec   -> ai-spec   -> GitHub Spec Kit
+Loop   -> ai-loop   -> LangGraph
+Verify -> ai-verify -> Semgrep + native tests
+Memory -> ai-memory -> Mem0 + local docs/memory
+```
+
+The framework decides when each step runs and how artifacts move between steps.
+
+## If Requirements Already Exist
+
+Put requirement documents under `docs/requirements/`, `docs/prd/`, or `docs/product/`, then ask:
+
+```text
+Use ai-engineering-discipline.
+I already have requirement documents.
+Import them into specs, create a requirements index, select the first implementation loop, and do not code until the spec and loop are ready.
+```
+"""
+
+
 BUGFIX_LOOP = """# Bugfix Loop
 
 ## Goal
@@ -348,6 +381,7 @@ Record repeated bugs, failed assumptions, review findings, and incident lessons 
 
 FILES = {
     "CLAUDE.md": CLAUDE_MD,
+    "docs/AI_ENGINEERING_START_HERE.md": START_HERE,
     "docs/specs/spec-template.md": SPEC_TEMPLATE,
     "docs/verify/verify-checklist.md": VERIFY_CHECKLIST,
     "docs/verify/test-matrix.md": TEST_MATRIX,
@@ -390,9 +424,9 @@ def main() -> int:
     print(f"written={counts['write']} skipped={counts['skip']}")
     print()
     print("Next steps:")
-    print("1. Ask Claude Code to read CLAUDE.md.")
-    print("2. Create or fill the first spec under docs/specs/.")
-    print("3. Use docs/loops/bugfix-loop.md or docs/loops/loop-template.md for the first task.")
+    print("1. Read docs/AI_ENGINEERING_START_HERE.md.")
+    print("2. Ask Claude Code to use ai-engineering-discipline to inspect this project and enter development.")
+    print("3. If requirements already exist, ask it to import them before coding.")
     return 0
 
 

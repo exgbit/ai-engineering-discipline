@@ -122,6 +122,7 @@ CLAUDE.md
 .codex/skills/ai-verify/
 .codex/skills/ai-memory/
 docs/specs/spec-template.md
+docs/AI_ENGINEERING_START_HERE.md
 docs/verify/verify-checklist.md
 docs/verify/test-matrix.md
 docs/memory/memory-entry.md
@@ -133,7 +134,7 @@ docs/loops/bugfix-loop.md
 .github/pull_request_template.md
 ```
 
-After install, open the target project in Claude Code and say:
+After install, read `docs/AI_ENGINEERING_START_HERE.md`, then open the target project in Claude Code and say:
 
 ```text
 Use ai-engineering-discipline to inspect this project and enter development.

@@ -44,6 +44,7 @@ call :copy_file "%FRAMEWORK_ROOT%\templates\verify-checklist.md" "%TARGET_DIR%\d
 call :copy_file "%FRAMEWORK_ROOT%\templates\memory-entry.md" "%TARGET_DIR%\docs\memory\memory-entry.md"
 call :copy_file "%FRAMEWORK_ROOT%\templates\loop-template.md" "%TARGET_DIR%\docs\loops\loop-template.md"
 call :copy_file "%FRAMEWORK_ROOT%\templates\pr-template.md" "%TARGET_DIR%\.github\pull_request_template.md"
+call :copy_file "%FRAMEWORK_ROOT%\templates\start-here.md" "%TARGET_DIR%\docs\AI_ENGINEERING_START_HERE.md"
 call :copy_file "%FRAMEWORK_ROOT%\examples\test-matrix.example.md" "%TARGET_DIR%\docs\verify\test-matrix.md"
 call :copy_file "%FRAMEWORK_ROOT%\examples\loop-runbook.example.md" "%TARGET_DIR%\docs\loops\bugfix-loop.md"
 for %%S in (ai-engineering-discipline ai-spec ai-loop ai-verify ai-memory) do (
@@ -64,11 +65,10 @@ if "%INSTALL_ADAPTERS%"=="1" (
 echo.
 echo Bootstrap complete.
 echo Next steps:
-echo   1. Read %TARGET_DIR%\CLAUDE.md
+echo   1. Read %TARGET_DIR%\docs\AI_ENGINEERING_START_HERE.md
 echo   2. Open Claude Code in the target project.
 echo   3. Say: Use ai-engineering-discipline to inspect this project and enter development.
 echo   4. Review docs\adapters\default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status.
-echo   5. The skill will create docs\memory\project-scan.md and guide Spec -^> Loop -^> Verify -^> Memory.
 exit /b 0
 
 :usage
