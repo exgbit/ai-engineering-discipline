@@ -77,7 +77,8 @@ echo   1. Read %TARGET_DIR%\docs\AI_ENGINEERING_START_HERE.md
 echo   2. Open Claude Code in the target project.
 echo   3. Run: /ai-start
 echo   4. Create work with: /ai-request --task feature --name "..." --requirements docs\requirements\...
-echo   5. Review docs\adapters\default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status.
+echo   5. If setup looks wrong, run: /ai-doctor
+echo   6. Review docs\adapters\default-stack.md for Spec Kit / LangGraph / Semgrep / Mem0 status.
 exit /b 0
 
 :usage

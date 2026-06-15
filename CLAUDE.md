@@ -203,6 +203,7 @@ When installed into a target project, prefer these Claude Code commands over fre
 - `/ai-request --task feature --name "..." --requirements docs/requirements/...`: create a managed request.
 - `/ai-execute`: generate safe spec, loop, verify, memory, and execution artifacts.
 - `/ai-verify`: run explicit verification and write structured results.
+- `/ai-doctor`: diagnose Claude Code skills, commands, framework files, and current request state.
 
 When asked to "write an article" or "prepare a report":
 

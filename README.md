@@ -27,6 +27,7 @@ claude-code-commands/
   ai-request.md              # Claude Code slash command: create managed request
   ai-execute.md              # Claude Code slash command: execute safe setup
   ai-verify.md               # Claude Code slash command: run explicit verification
+  ai-doctor.md               # Claude Code slash command: diagnose installation
 adapters/
   default-stack.json        # Default open-source framework choices
 presets/
@@ -132,6 +133,7 @@ AGENTS.md
 .claude/commands/ai-request.md
 .claude/commands/ai-execute.md
 .claude/commands/ai-verify.md
+.claude/commands/ai-doctor.md
 .codex/skills/ai-engineering-discipline/
 .codex/skills/ai-spec/
 .codex/skills/ai-loop/
@@ -163,6 +165,7 @@ Claude Code slash commands are installed under `.claude/commands/`:
 /ai-request --task feature --name "refund approval" --requirements docs/requirements/refund.md --risk medium
 /ai-execute
 /ai-verify
+/ai-doctor
 ```
 
 The Claude Code workflow will:
@@ -273,6 +276,7 @@ Claude Code users can use slash commands instead of remembering script paths:
 ```text
 /ai-request --task feature --name "refund approval" --requirements docs/requirements/refund.md
 /ai-execute --run-native-checks
+/ai-doctor
 ```
 
 Minimum example:

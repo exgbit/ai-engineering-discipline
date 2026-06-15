@@ -13,6 +13,7 @@ If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstr
 /ai-request --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium
 /ai-execute
 /ai-verify
+/ai-doctor
 ```
 
 These commands live in `.claude/commands/` and call the installed `.claude/skills/ai-engineering-discipline/scripts/` helpers.
@@ -121,6 +122,12 @@ Optional explicit verification:
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-semgrep
+```
+
+If Claude Code setup fails, run:
+
+```text
+/ai-doctor
 ```
 
 Verification results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.

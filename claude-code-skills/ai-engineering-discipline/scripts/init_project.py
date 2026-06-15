@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from pathlib import Path
 
 
@@ -322,6 +323,7 @@ If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstr
 /ai-request --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium
 /ai-execute
 /ai-verify
+/ai-doctor
 ```
 
 These commands live in `.claude/commands/` and call the installed `.claude/skills/ai-engineering-discipline/scripts/` helpers.
@@ -431,6 +433,12 @@ Optional explicit verification:
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-semgrep
 ```
+
+If Claude Code setup fails, run:
+
+```text
+/ai-doctor
+```
 """
 
 
@@ -449,8 +457,9 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/init_project.py .
-python .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/init_project.py .
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/inspect_project.py .
 ```
 
 Then read `docs/AI_ENGINEERING_START_HERE.md`, `docs/memory/project-scan.md`, and `CLAUDE.md`.
@@ -473,8 +482,9 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . $ARGUMENTS
-python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/run_request.py . $ARGUMENTS
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
 
 Read `docs/ai-engineering/current-request.md` and `docs/ai-engineering/execution-report.md`, then summarize the generated spec, loop, verify plan, and memory plan. Do not implement business code unless the request allows execution and the spec/loop are ready.
@@ -496,7 +506,8 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . $ARGUMENTS
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . $ARGUMENTS
 ```
 
 Read `docs/ai-engineering/execution-report.md` and the generated spec, loop, verify, and memory artifacts. If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
@@ -518,10 +529,34 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run this default command:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
 ```
 
 Use `--fail-on-verify-failure` only when the user wants a non-zero exit after results are written. Summarize pass/fail/skipped checks, residual risk, and whether implementation or PR review can proceed.
+"""
+
+
+AI_DOCTOR_COMMAND = """# AI Engineering Doctor
+
+Diagnose the Claude Code installation for the Spec / Loop / Verify / Memory workflow.
+
+From the repository root, first check that this file exists:
+
+```text
+.claude/skills/ai-engineering-discipline/scripts/doctor.py
+```
+
+If it does not exist, stop and tell the user to run the framework bootstrap script first.
+
+If it exists, run:
+
+```bash
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/doctor.py . $ARGUMENTS
+```
+
+Read `docs/ai-engineering/doctor-report.md`. Summarize failures first, then warnings, then the next concrete fix. Do not modify business code.
 """
 
 
@@ -616,7 +651,10 @@ FILES = {
     ".claude/commands/ai-request.md": AI_REQUEST_COMMAND,
     ".claude/commands/ai-execute.md": AI_EXECUTE_COMMAND,
     ".claude/commands/ai-verify.md": AI_VERIFY_COMMAND,
+    ".claude/commands/ai-doctor.md": AI_DOCTOR_COMMAND,
 }
+
+SKILL_NAMES = ["ai-engineering-discipline", "ai-spec", "ai-loop", "ai-verify", "ai-memory"]
 
 
 def write_file(path: Path, content: str, force: bool) -> str:
@@ -625,6 +663,50 @@ def write_file(path: Path, content: str, force: bool) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.rstrip() + "\n", encoding="utf-8")
     return "write"
+
+
+def skill_source_parent(current_skill_root: Path, flavor: str) -> Path | None:
+    repo_root = current_skill_root.parent.parent
+    preferred_name = "claude-code-skills" if flavor == "claude" else "skills"
+    preferred = repo_root / preferred_name
+    if (preferred / "ai-engineering-discipline" / "SKILL.md").exists():
+        return preferred
+    fallback = current_skill_root.parent
+    if (fallback / "ai-engineering-discipline" / "SKILL.md").exists():
+        return fallback
+    return None
+
+
+def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
+    current_skill_root = Path(__file__).resolve().parents[1]
+    counts = {"write": 0, "skip": 0, "missing": 0}
+    destinations = {
+        "claude": target / ".claude" / "skills",
+        "codex": target / ".codex" / "skills",
+    }
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
+    for flavor, dest_root in destinations.items():
+        source_parent = skill_source_parent(current_skill_root, flavor)
+        if source_parent is None:
+            counts["missing"] += len(SKILL_NAMES)
+            print(f"missing skill source parent for {flavor}")
+            continue
+        for skill_name in SKILL_NAMES:
+            src = source_parent / skill_name
+            dst = dest_root / skill_name
+            if not (src / "SKILL.md").exists():
+                counts["missing"] += 1
+                print(f"missing skill source: {src}")
+                continue
+            if dst.exists() and not force:
+                counts["skip"] += 1
+                print(f"skip skill: {dst}")
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)
+            counts["write"] += 1
+            print(f"write skill: {dst}")
+    return counts
 
 
 def main() -> int:
@@ -642,15 +724,23 @@ def main() -> int:
         result = write_file(target / rel_path, content, args.force)
         counts[result] += 1
         print(f"{result}: {target / rel_path}")
+    skill_counts = install_skill_dirs(target, args.force)
 
     print()
     print("AI Engineering Discipline bootstrap complete.")
     print(f"written={counts['write']} skipped={counts['skip']}")
+    print(
+        "skills "
+        f"written={skill_counts['write']} "
+        f"skipped={skill_counts['skip']} "
+        f"missing={skill_counts['missing']}"
+    )
     print()
     print("Next steps:")
     print("1. Read docs/AI_ENGINEERING_START_HERE.md.")
     print("2. Ask Claude Code to use ai-engineering-discipline to inspect this project and enter development.")
     print("3. If requirements already exist, ask it to import them before coding.")
+    print("4. If Claude Code setup looks wrong, run /ai-doctor.")
     return 0
 
 

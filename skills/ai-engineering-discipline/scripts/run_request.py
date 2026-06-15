@@ -298,7 +298,7 @@ def main() -> int:
     print(f"wrote: {request_path}")
     print()
     print("Next command:")
-    print(f"python {skill_script('execute_request.py')} {target}")
+    print(f"{sys.executable} {skill_script('execute_request.py')} {target}")
     return 0
 
 

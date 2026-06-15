@@ -20,13 +20,15 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/run_request.py . $ARGUMENTS
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/run_request.py . $ARGUMENTS
 ```
 
 Then run the safe executor:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
 
 Read `docs/ai-engineering/current-request.md` and `docs/ai-engineering/execution-report.md`, then summarize the generated spec, loop, verify plan, and memory plan. Do not implement business code unless the request allows execution and the spec/loop are ready.

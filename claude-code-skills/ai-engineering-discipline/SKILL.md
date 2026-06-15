@@ -86,6 +86,14 @@ Write results to `docs/verify/verification-results.json` and `docs/verify/verifi
 
 Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written.
 
+If Claude Code setup is unclear or commands are missing, run:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/doctor.py .
+```
+
+This writes `docs/ai-engineering/doctor-report.md`.
+
 ## Initialize a Project
 
 If the current directory is the target project:

@@ -13,7 +13,8 @@ If it does not exist, stop and tell the user to run the framework bootstrap scri
 If it exists, run this default command:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
+if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; fi
+"$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
 ```
 
 Use `--fail-on-verify-failure` only when the user wants a non-zero exit after results are written.
