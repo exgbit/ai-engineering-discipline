@@ -113,6 +113,16 @@ def parse_bullet_paths(section: str, target: Path) -> list[Path]:
     return paths
 
 
+def target_artifact_path(target: Path, raw: str, label: str) -> Path:
+    target_root = target.resolve()
+    path = Path(raw).expanduser()
+    candidate = path if path.is_absolute() else target_root / path
+    candidate = candidate.resolve()
+    if candidate != target_root and not candidate.is_relative_to(target_root):
+        raise SystemExit(f"{label} artifact must stay inside target project: {candidate}")
+    return candidate
+
+
 def parse_request(target: Path, request_path: Path) -> ManagedRequest:
     if not request_path.exists():
         raise SystemExit(f"Managed request not found: {request_path}")
@@ -123,8 +133,7 @@ def parse_request(target: Path, request_path: Path) -> ManagedRequest:
 
     def artifact(label: str, default: str) -> Path:
         raw = parse_bullet_value(artifacts_section, label) or default
-        path = Path(raw)
-        return path if path.is_absolute() else target / path
+        return target_artifact_path(target, raw, label)
 
     task = parse_bullet_value(task_section, "Type")
     name = parse_bullet_value(task_section, "Name")

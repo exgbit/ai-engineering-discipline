@@ -27,6 +27,8 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
   --risk medium
 ```
 
+For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
+
 ## What Happens Behind the Scenes
 
 ```text

@@ -55,6 +55,8 @@ python .codex/skills/ai-engineering-discipline/scripts/run_request.py . \
 
 This resolves framework parameters from presets and writes `docs/ai-engineering/current-request.md`. Execute that request through this orchestrator.
 
+For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
+
 Then execute safe setup artifacts:
 
 ```bash

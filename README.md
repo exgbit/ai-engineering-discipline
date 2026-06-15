@@ -207,6 +207,8 @@ task=feature risk=medium requirements=refund.md
 
 The resolved plan is written to `docs/ai-engineering/current-request.md`.
 
+For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
+
 Then execute the safe setup steps:
 
 ```bash

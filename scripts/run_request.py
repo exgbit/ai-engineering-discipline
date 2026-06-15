@@ -37,6 +37,7 @@ DEFAULT_RISK = {
     "verify": "medium",
     "memory": "low",
 }
+PRESET_ALIASES = {"auto", "default", "standard"}
 
 
 def slugify(value: str) -> str:
@@ -67,7 +68,9 @@ def skill_script(name: str) -> Path:
 
 
 def load_preset(task: str, risk: str, preset_name: str | None) -> dict[str, object]:
-    name = preset_name or f"{task}-{risk}"
+    requested = preset_name.strip().lower() if preset_name else ""
+    name = None if requested in PRESET_ALIASES else requested
+    name = name or f"{task}-{risk}"
     path = PRESETS_DIR / f"{name}.json"
     if not path.exists():
         available = ", ".join(sorted(p.stem for p in PRESETS_DIR.glob("*.json")))
@@ -240,7 +243,10 @@ def main() -> int:
     parser.add_argument("--task", choices=sorted(TASK_LOOPS), required=True)
     parser.add_argument("--name", required=True, help="Feature/bugfix/request name.")
     parser.add_argument("--risk", choices=["low", "medium", "high"], help="Risk level. Defaults by task type.")
-    parser.add_argument("--preset", help="Preset name, e.g. feature-medium. Overrides --risk.")
+    parser.add_argument(
+        "--preset",
+        help="Preset name, e.g. feature-medium. Use standard/default/auto to select the task+risk default.",
+    )
     parser.add_argument(
         "--requirements",
         action="append",
@@ -256,12 +262,13 @@ def main() -> int:
     if not target.exists() or not target.is_dir():
         raise SystemExit(f"Target project does not exist: {target}")
 
+    risk = args.risk or DEFAULT_RISK[args.task]
+    preset = load_preset(args.task, risk, args.preset)
+
     if not args.skip_init:
         run_script(skill_script("init_project.py"), target)
         run_script(skill_script("inspect_project.py"), target)
 
-    risk = args.risk or DEFAULT_RISK[args.task]
-    preset = load_preset(args.task, risk, args.preset)
     copied = copy_requirements([Path(p) for p in args.requirements], target)
     request_path = write_request(target, args.task, args.name, copied, args.notes, args.execute, preset)
 

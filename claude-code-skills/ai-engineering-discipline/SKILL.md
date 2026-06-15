@@ -65,6 +65,8 @@ docs/ai-engineering/current-request.md
 
 Then execute that request. Do not ask the user for Spec Kit, LangGraph, Semgrep, or Mem0 parameters unless the preset is blocked.
 
+For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
+
 Prefer the safe executor before implementation:
 
 ```bash
