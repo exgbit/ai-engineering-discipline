@@ -14,6 +14,7 @@ AI 编程必须具备三件套，并通过 loop 跑起来：
 ## Repository Layout
 
 ```text
+CLAUDE.md                    # Agent operating protocol
 framework/
   spec-verify-memory.md     # 核心框架
   loop-engineering.md       # Loop Engineering 执行模型
@@ -46,10 +47,23 @@ writing/
 ## How To Use
 
 1. 在目标项目中创建 `docs/specs/`、`docs/verify/`、`docs/memory/`、`docs/loops/`。
-2. 将 `templates/` 中的模板复制到项目中。
-3. 每个需求先补 `spec`，每个 PR 必须过 `verify`，每次事故或踩坑必须更新 `memory`。
-4. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
-5. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
+2. 将 `CLAUDE.md` 复制到目标项目根目录，让 Claude Code 自动按四层协议执行。
+3. 将 `templates/` 中的模板复制到项目中。
+4. 每个需求先补 `spec`，每个 PR 必须过 `verify`，每次事故或踩坑必须更新 `memory`。
+5. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
+6. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
+
+Bootstrap example:
+
+```bash
+mkdir -p docs/specs docs/verify docs/memory docs/loops .github
+cp /path/to/ai-engineering-discipline/CLAUDE.md .
+cp /path/to/ai-engineering-discipline/templates/spec-template.md docs/specs/
+cp /path/to/ai-engineering-discipline/templates/verify-checklist.md docs/verify/
+cp /path/to/ai-engineering-discipline/templates/memory-entry.md docs/memory/
+cp /path/to/ai-engineering-discipline/templates/loop-template.md docs/loops/
+cp /path/to/ai-engineering-discipline/templates/pr-template.md .github/pull_request_template.md
+```
 
 ## Minimum Viable Adoption
 
