@@ -84,6 +84,7 @@ mkdir -p \
   "$TARGET_DIR/.codex/skills"
 
 copy_file "$FRAMEWORK_ROOT/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
+copy_file "$FRAMEWORK_ROOT/templates/agents-template.md" "$TARGET_DIR/AGENTS.md"
 copy_file "$FRAMEWORK_ROOT/templates/spec-template.md" "$TARGET_DIR/docs/specs/spec-template.md"
 copy_file "$FRAMEWORK_ROOT/templates/verify-checklist.md" "$TARGET_DIR/docs/verify/verify-checklist.md"
 copy_file "$FRAMEWORK_ROOT/templates/memory-entry.md" "$TARGET_DIR/docs/memory/memory-entry.md"

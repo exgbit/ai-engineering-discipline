@@ -40,6 +40,7 @@ call :mkdir "%TARGET_DIR%\.claude\skills"
 call :mkdir "%TARGET_DIR%\.codex\skills"
 
 call :copy_file "%FRAMEWORK_ROOT%\CLAUDE.md" "%TARGET_DIR%\CLAUDE.md"
+call :copy_file "%FRAMEWORK_ROOT%\templates\agents-template.md" "%TARGET_DIR%\AGENTS.md"
 call :copy_file "%FRAMEWORK_ROOT%\templates\spec-template.md" "%TARGET_DIR%\docs\specs\spec-template.md"
 call :copy_file "%FRAMEWORK_ROOT%\templates\verify-checklist.md" "%TARGET_DIR%\docs\verify\verify-checklist.md"
 call :copy_file "%FRAMEWORK_ROOT%\templates\memory-entry.md" "%TARGET_DIR%\docs\memory\memory-entry.md"

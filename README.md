@@ -15,6 +15,7 @@ AI 编程必须具备三件套，并通过 loop 跑起来：
 
 ```text
 CLAUDE.md                    # Agent operating protocol
+AGENTS.md                    # Repository contributor guide for agents
 claude-code-skills/
   ai-engineering-discipline/ # Claude Code orchestrator skill
   ai-spec/                   # Spec step skill, default: GitHub Spec Kit
@@ -38,6 +39,7 @@ framework/
   operating-model.md        # 团队协作模型
   company-pilot-playbook.md # 公司试点操作手册
 templates/
+  agents-template.md        # Target-project AGENTS.md operating protocol
   spec-template.md          # 需求 / 设计规格模板
   adr-template.md           # 架构决策记录模板
   pr-template.md            # AI 编程 PR 模板
@@ -120,6 +122,7 @@ The installer creates:
 
 ```text
 CLAUDE.md
+AGENTS.md
 .claude/skills/ai-engineering-discipline/
 .claude/skills/ai-spec/
 .claude/skills/ai-loop/
