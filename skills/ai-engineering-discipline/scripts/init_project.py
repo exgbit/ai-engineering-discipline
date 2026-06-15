@@ -537,7 +537,7 @@ if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; 
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks --run-semgrep $ARGUMENTS
 ```
 
-Use `--fail-on-verify-failure` only when the user wants a non-zero exit after results are written. Summarize pass/fail/skipped checks, residual risk, and whether implementation or PR review can proceed.
+Use `--fail-on-verify-failure` only when the user wants a non-zero exit after results are written and the overall verification status is `blocked`. Summarize pass/fail/skipped checks, residual risk, and whether implementation or PR review can proceed.
 
 If the command exits non-zero before verification starts, read `docs/ai-engineering/execution-report.md`; it may contain a generated blocked report with the next `/ai-request` command.
 """

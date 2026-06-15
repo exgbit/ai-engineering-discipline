@@ -232,7 +232,7 @@ python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --r
 
 Results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Semgrep raw JSON is saved as `docs/verify/semgrep-results.json` when Semgrep runs successfully. Native checks are limited to detected local test, lint, typecheck, and required build commands.
 
-For CI-style usage, add `--fail-on-verify-failure` after the results are written.
+For CI-style usage, add `--fail-on-verify-failure`; the command exits non-zero after results are written when the overall verification status is `blocked`.
 
 For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`.
 

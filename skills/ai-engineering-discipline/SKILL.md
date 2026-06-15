@@ -74,7 +74,7 @@ python <skill_dir>/scripts/execute_request.py . --run-native-checks
 
 Write results to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
 
-Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written.
+Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written and the overall verification status is `blocked`.
 
 If Claude Code setup is unclear or commands are missing, run:
 

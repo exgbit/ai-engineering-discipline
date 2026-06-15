@@ -643,6 +643,7 @@ def write_verification_results(
     verify_dir = target / "docs" / "verify"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     semgrep_summary = parse_semgrep_summary(semgrep.stdout) if semgrep else None
+    overall_status, overall_reason = verification_rollup(semgrep, native)
     payload: dict[str, object] = {
         "created": now,
         "request": {
@@ -651,6 +652,8 @@ def write_verification_results(
             "preset": request.preset,
             "risk": request.risk,
         },
+        "overall_status": overall_status,
+        "overall_reason": overall_reason,
         "semgrep": result_to_dict(semgrep) if semgrep else None,
         "semgrep_summary": semgrep_summary,
         "native_checks": [result_to_dict(item) for item in native],
@@ -663,6 +666,9 @@ def write_verification_results(
         f"Created: {now}",
         "",
         "## Summary",
+        "",
+        f"- Overall status: `{overall_status}`",
+        f"- Reason: {overall_reason}",
         "",
         "| Check | Status | Exit | Duration |",
         "|---|---|---|---|",
@@ -678,6 +684,7 @@ def write_verification_results(
             "",
             f"- Command: `{command_to_text(semgrep.command) if semgrep else ''}`",
             f"- Status: `{semgrep.status if semgrep else ''}`",
+            f"- Parse error: `{semgrep_summary.get('parse_error')}`",
             f"- Findings: `{semgrep_summary.get('findings')}`",
             f"- Errors: `{semgrep_summary.get('errors')}`",
             f"- Severity counts: `{json.dumps(semgrep_summary.get('severity_counts', {}), ensure_ascii=False)}`",
@@ -737,6 +744,8 @@ def verification_rollup(semgrep: CommandResult | None, native: list[CommandResul
         return "pending", "At least one requested verification command was skipped or unavailable."
     if semgrep:
         summary = parse_semgrep_summary(semgrep.stdout)
+        if summary.get("parse_error"):
+            return "blocked", "Semgrep output could not be parsed as JSON."
         if summary.get("findings", 0) or summary.get("errors", 0):
             return "blocked", "Semgrep reported findings or scan errors."
     if any(item.status == "passed" for item in results):
@@ -804,8 +813,8 @@ Structured results:
 
 
 def has_verify_failure(semgrep: CommandResult | None, native: list[CommandResult]) -> bool:
-    results = ([semgrep] if semgrep else []) + native
-    return any(item.status in {"failed", "timeout"} for item in results)
+    status, _ = verification_rollup(semgrep, native)
+    return status == "blocked"
 
 
 def write_blocked_report(target: Path, request_path: Path, reason: str) -> Path:
@@ -883,7 +892,7 @@ def main() -> int:
     parser.add_argument("--run-semgrep", action="store_true", help="Run Semgrep and write structured results to docs/verify/.")
     parser.add_argument("--run-native-checks", action="store_true", help="Run detected native test/lint/typecheck/build commands.")
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="Timeout per verification command.")
-    parser.add_argument("--fail-on-verify-failure", action="store_true", help="Exit non-zero after writing results if any verification command fails or times out.")
+    parser.add_argument("--fail-on-verify-failure", action="store_true", help="Exit non-zero after writing results if overall verification is blocked.")
     args = parser.parse_args()
 
     target = Path(args.target).expanduser().resolve()
