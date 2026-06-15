@@ -37,11 +37,57 @@ examples/
   test-matrix.example.md    # 需求到测试映射示例
   loop-runbook.example.md   # Loop runbook 示例
 scripts/
+  bootstrap.sh              # macOS / Linux 项目安装脚本
+  bootstrap.bat             # Windows 项目安装脚本
   summarize_metrics.py      # 指标摘要脚本
 writing/
   source-notes.md           # 发布前来源核验
   article-brief.md          # 文章策划
   article-draft.md          # 中文文章草案
+```
+
+## Quick Install
+
+After cloning this repository, point the bootstrap script at the project you want to develop.
+
+macOS / Linux:
+
+```bash
+cd /path/to/ai-engineering-discipline
+./scripts/bootstrap.sh /path/to/target-project
+```
+
+Windows:
+
+```bat
+cd C:\path\to\ai-engineering-discipline
+scripts\bootstrap.bat C:\path\to\target-project
+```
+
+By default, existing files are not overwritten. To reinstall framework files, add `--force`:
+
+```bash
+./scripts/bootstrap.sh /path/to/target-project --force
+```
+
+```bat
+scripts\bootstrap.bat C:\path\to\target-project --force
+```
+
+The installer creates:
+
+```text
+CLAUDE.md
+docs/specs/spec-template.md
+docs/verify/verify-checklist.md
+docs/verify/test-matrix.md
+docs/memory/memory-entry.md
+docs/memory/project-rules.md
+docs/memory/module-map.md
+docs/memory/pitfalls.md
+docs/loops/loop-template.md
+docs/loops/bugfix-loop.md
+.github/pull_request_template.md
 ```
 
 ## How To Use
@@ -53,7 +99,7 @@ writing/
 5. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
 6. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
 
-Bootstrap example:
+Manual bootstrap example:
 
 ```bash
 mkdir -p docs/specs docs/verify docs/memory docs/loops .github
