@@ -115,7 +115,7 @@ docs/verify/test-matrix.md
 docs/memory/project-rules.md
 ```
 
-## Daily Prompts
+## Daily Commands
 
 New feature:
 
@@ -141,8 +141,8 @@ PR validation:
 Memory update:
 
 ```text
-Use ai-engineering-discipline to update memory from this task.
-Only record real rules, boundaries, and pitfalls.
+/ai-request --task memory --name "memory update" --risk low
+/ai-execute
 ```
 
 ## Rule

@@ -188,28 +188,32 @@ Stop and ask the user before:
 - exceeding retry, time, token, or cost budget;
 - continuing without verification evidence.
 
-## Recommended User Prompts
+## Recommended Command Entries
 
 Initialize current project:
 
-```text
-Use ai-engineering-discipline to initialize this repository and prepare it for Claude Code development.
+```bash
+python <skill_dir>/scripts/init_project.py .
+python <skill_dir>/scripts/inspect_project.py .
 ```
 
 Start a feature:
 
-```text
-Use ai-engineering-discipline to create a spec for <feature>, then enter the feature loop. Do not code until the spec is ready.
+```bash
+python <skill_dir>/scripts/run_request.py . --task feature --name "<feature>" --requirements docs/requirements/<feature>.md --risk medium
+python <skill_dir>/scripts/execute_request.py .
 ```
 
 Fix a bug:
 
-```text
-Use ai-engineering-discipline bugfix loop. Reproduce first, add failing test or trace, then implement the minimal fix.
+```bash
+python <skill_dir>/scripts/run_request.py . --task bugfix --name "<bug>" --requirements docs/requirements/<bug>.md --risk medium
+python <skill_dir>/scripts/execute_request.py .
 ```
 
 Run verification:
 
-```text
-Use ai-engineering-discipline to run the verify checklist and produce PR evidence.
+```bash
+python <skill_dir>/scripts/run_request.py . --task verify --name "pr validation" --risk medium
+python <skill_dir>/scripts/execute_request.py . --run-native-checks --run-semgrep
 ```

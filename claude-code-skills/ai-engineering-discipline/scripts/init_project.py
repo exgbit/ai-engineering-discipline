@@ -290,12 +290,6 @@ You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use t
 
 These commands live in `.claude/commands/` and call the installed `.claude/skills/ai-engineering-discipline/scripts/` helpers.
 
-Equivalent prompt:
-
-```text
-Use ai-engineering-discipline to inspect this project and enter development.
-```
-
 ## What Happens Behind the Scenes
 
 ```text

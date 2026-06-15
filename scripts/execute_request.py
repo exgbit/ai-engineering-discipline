@@ -471,7 +471,7 @@ def truncate_output(value: str, limit: int = OUTPUT_LIMIT) -> str:
 
 
 def command_to_text(command: list[str]) -> str:
-    return " ".join(command)
+    return " ".join(command) if command else "none"
 
 
 def command_available(command: list[str], target: Path) -> bool:
@@ -869,6 +869,17 @@ def main() -> int:
                 native_results.append(result)
                 actions.append(f"verify {name}: {result.status}")
         else:
+            native_results.append(
+                CommandResult(
+                    name="native:detect",
+                    command=[],
+                    status="skipped",
+                    exit_code=None,
+                    duration_seconds=0.0,
+                    stdout="",
+                    stderr="No recognized native verification commands.",
+                )
+            )
             actions.append("verify native: skipped no recognized commands")
     write_verification_results(target, request, semgrep_result, native_results, actions)
     update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
