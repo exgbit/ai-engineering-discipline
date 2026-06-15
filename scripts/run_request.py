@@ -78,14 +78,34 @@ def load_preset(task: str, risk: str, preset_name: str | None) -> dict[str, obje
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def resolve_requirement_source(source: Path, target: Path) -> Path:
+    source = source.expanduser()
+    if source.is_absolute():
+        return source.resolve()
+    candidates = [
+        (Path.cwd() / source).resolve(),
+        (target / source).resolve(),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
     dest_dir = target / "docs" / "requirements"
     dest_dir.mkdir(parents=True, exist_ok=True)
     copied: list[Path] = []
     for source in requirements:
-        source = source.expanduser().resolve()
+        raw_source = source
+        source = resolve_requirement_source(source, target)
         if not source.exists():
-            raise SystemExit(f"Requirement path does not exist: {source}")
+            if raw_source.expanduser().is_absolute():
+                raise SystemExit(f"Requirement path does not exist: {source}")
+            raise SystemExit(
+                "Requirement path does not exist: "
+                f"{raw_source} (tried {Path.cwd() / raw_source} and {target / raw_source})"
+            )
         if source == dest_dir or source.is_relative_to(dest_dir):
             if source.is_dir():
                 for item in sorted(source.rglob("*")):
@@ -251,7 +271,10 @@ def main() -> int:
         "--requirements",
         action="append",
         default=[],
-        help="Requirement file or directory. Can be passed multiple times.",
+        help=(
+            "Requirement file or directory. Can be passed multiple times. "
+            "Relative paths are resolved from the current directory, then the target project."
+        ),
     )
     parser.add_argument("--notes", default="", help="Additional instructions.")
     parser.add_argument("--execute", action="store_true", help="Allow implementation after spec and loop are ready.")

@@ -29,6 +29,8 @@ python scripts/run_request.py /path/to/project \
 
 This writes `docs/ai-engineering/current-request.md` with the resolved parameters.
 
+Requirement paths may be absolute, relative to your current shell directory, or relative to the target project.
+
 ## Included Presets
 
 | Preset | Use |
