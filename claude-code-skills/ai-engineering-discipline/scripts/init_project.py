@@ -698,6 +698,10 @@ def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
                 counts["missing"] += 1
                 print(f"missing skill source: {src}")
                 continue
+            if src.resolve() == dst.resolve():
+                counts["skip"] += 1
+                print(f"skip skill self-copy: {dst}")
+                continue
             if dst.exists() and not force:
                 counts["skip"] += 1
                 print(f"skip skill: {dst}")

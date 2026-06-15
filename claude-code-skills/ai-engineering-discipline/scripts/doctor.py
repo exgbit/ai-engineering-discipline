@@ -41,6 +41,14 @@ def skill_check(target: Path, rel_path: str, required: bool = True) -> Check:
     return Check("fail" if required else "warn", rel_path, "missing SKILL.md")
 
 
+def skill_script_check(target: Path, script_name: str) -> Check:
+    rel_path = f".claude/skills/ai-engineering-discipline/scripts/{script_name}"
+    path = target / rel_path
+    if path.is_file():
+        return Check("ok", rel_path, "script found")
+    return Check("fail", rel_path, "missing script")
+
+
 def command_check(target: Path, name: str) -> Check:
     rel_path = f".claude/commands/{name}.md"
     path = target / rel_path
@@ -66,6 +74,12 @@ def collect_checks(target: Path) -> list[Check]:
         skill_check(target, ".claude/skills/ai-verify"),
         skill_check(target, ".claude/skills/ai-memory"),
         skill_check(target, ".codex/skills/ai-engineering-discipline", required=False),
+        skill_script_check(target, "init_project.py"),
+        skill_script_check(target, "inspect_project.py"),
+        skill_script_check(target, "run_request.py"),
+        skill_script_check(target, "execute_request.py"),
+        skill_script_check(target, "doctor.py"),
+        skill_script_check(target, "install_default_adapters.py"),
         command_check(target, "ai-start"),
         command_check(target, "ai-request"),
         command_check(target, "ai-execute"),
