@@ -16,7 +16,11 @@ AI 编程必须具备三件套，并通过 loop 跑起来：
 ```text
 CLAUDE.md                    # Agent operating protocol
 claude-code-skills/
-  ai-engineering-discipline/ # Claude Code skill package
+  ai-engineering-discipline/ # Claude Code orchestrator skill
+  ai-spec/                   # Spec step skill, default: GitHub Spec Kit
+  ai-loop/                   # Loop step skill, default: LangGraph
+  ai-verify/                 # Verify step skill, default: Semgrep
+  ai-memory/                 # Memory step skill, default: Mem0
 adapters/
   default-stack.json        # Default open-source framework choices
 framework/
@@ -46,7 +50,11 @@ scripts/
   install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
   summarize_metrics.py      # 指标摘要脚本
 skills/
-  ai-engineering-discipline/ # Codex skill package
+  ai-engineering-discipline/ # Codex orchestrator skill
+  ai-spec/
+  ai-loop/
+  ai-verify/
+  ai-memory/
 writing/
   source-notes.md           # 发布前来源核验
   article-brief.md          # 文章策划
@@ -103,7 +111,15 @@ The installer creates:
 ```text
 CLAUDE.md
 .claude/skills/ai-engineering-discipline/
+.claude/skills/ai-spec/
+.claude/skills/ai-loop/
+.claude/skills/ai-verify/
+.claude/skills/ai-memory/
 .codex/skills/ai-engineering-discipline/
+.codex/skills/ai-spec/
+.codex/skills/ai-loop/
+.codex/skills/ai-verify/
+.codex/skills/ai-memory/
 docs/specs/spec-template.md
 docs/verify/verify-checklist.md
 docs/verify/test-matrix.md
@@ -163,6 +179,18 @@ This writes `docs/adapters/default-stack.md` in the target project with detected
 5. 每个需求先补 `spec`，每个 PR 必须过 `verify`，每次事故或踩坑必须更新 `memory`。
 6. 将重复任务改造成 loop，明确状态机、退出条件、重试策略和预算。
 7. 用 `data/metrics-schema.csv` 跟踪 AI 编程的真实收益与风险。
+
+## If Requirements Already Exist
+
+Use the step skills directly:
+
+```text
+Use ai-spec to import existing requirement documents into docs/specs/.
+Then use ai-loop to select the first implementation loop.
+Do not write code until the spec and loop are ready.
+```
+
+This creates a `docs/specs/requirements-index.md` and converts existing requirement docs into feature specs. See `framework/existing-requirements-workflow.md`.
 
 Manual bootstrap example:
 

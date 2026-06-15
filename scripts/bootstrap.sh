@@ -91,25 +91,22 @@ copy_file "$FRAMEWORK_ROOT/templates/pr-template.md" "$TARGET_DIR/.github/pull_r
 copy_file "$FRAMEWORK_ROOT/examples/test-matrix.example.md" "$TARGET_DIR/docs/verify/test-matrix.md"
 copy_file "$FRAMEWORK_ROOT/examples/loop-runbook.example.md" "$TARGET_DIR/docs/loops/bugfix-loop.md"
 
-CODEX_SKILL_SRC="$FRAMEWORK_ROOT/skills/ai-engineering-discipline"
-CODEX_SKILL_DST="$TARGET_DIR/.codex/skills/ai-engineering-discipline"
-if [[ -d "$CODEX_SKILL_DST" && "$FORCE" != "1" ]]; then
-  echo "skip existing: $CODEX_SKILL_DST"
-else
-  mkdir -p "$CODEX_SKILL_DST"
-  cp -R "$CODEX_SKILL_SRC/." "$CODEX_SKILL_DST/"
-  echo "installed: $CODEX_SKILL_DST"
-fi
+install_skill_dir() {
+  local src="$1"
+  local dst="$2"
+  if [[ -d "$dst" && "$FORCE" != "1" ]]; then
+    echo "skip existing: $dst"
+  else
+    mkdir -p "$dst"
+    cp -R "$src/." "$dst/"
+    echo "installed: $dst"
+  fi
+}
 
-CLAUDE_SKILL_SRC="$FRAMEWORK_ROOT/claude-code-skills/ai-engineering-discipline"
-CLAUDE_SKILL_DST="$TARGET_DIR/.claude/skills/ai-engineering-discipline"
-if [[ -d "$CLAUDE_SKILL_DST" && "$FORCE" != "1" ]]; then
-  echo "skip existing: $CLAUDE_SKILL_DST"
-else
-  mkdir -p "$CLAUDE_SKILL_DST"
-  cp -R "$CLAUDE_SKILL_SRC/." "$CLAUDE_SKILL_DST/"
-  echo "installed: $CLAUDE_SKILL_DST"
-fi
+for skill_name in ai-engineering-discipline ai-spec ai-loop ai-verify ai-memory; do
+  install_skill_dir "$FRAMEWORK_ROOT/skills/$skill_name" "$TARGET_DIR/.codex/skills/$skill_name"
+  install_skill_dir "$FRAMEWORK_ROOT/claude-code-skills/$skill_name" "$TARGET_DIR/.claude/skills/$skill_name"
+done
 
 write_file_if_missing "$TARGET_DIR/docs/memory/project-rules.md" "Project Rules" \
 "- Add project-specific architecture and coding rules here.

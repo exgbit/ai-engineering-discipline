@@ -7,7 +7,18 @@ description: Bootstrap and operate AI-assisted software projects with the Spec /
 
 ## Purpose
 
-Use this skill to initialize and operate a target repository with the `Spec / Verify / Memory + Loop` workflow.
+Use this as the orchestrator skill. It coordinates four step skills:
+
+```text
+ai-spec -> ai-loop -> ai-verify -> ai-memory
+```
+
+Each step skill owns one default open-source framework:
+
+- `ai-spec`: GitHub Spec Kit
+- `ai-loop`: LangGraph
+- `ai-verify`: Semgrep plus native tests
+- `ai-memory`: Mem0 plus local `docs/memory`
 
 The skill should minimize human setup:
 

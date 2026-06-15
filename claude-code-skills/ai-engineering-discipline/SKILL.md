@@ -7,11 +7,18 @@ description: Initialize and operate Claude Code projects with the Spec / Verify 
 
 ## Purpose
 
-Use this skill in Claude Code to reduce manual project setup and force AI-assisted development through:
+Use this as the orchestrator skill in Claude Code. It coordinates four step skills:
 
 ```text
-Spec -> Loop -> Verify -> Memory
+ai-spec -> ai-loop -> ai-verify -> ai-memory
 ```
+
+Each step skill owns one part of the default framework:
+
+- `ai-spec`: GitHub Spec Kit
+- `ai-loop`: LangGraph
+- `ai-verify`: Semgrep plus native tests
+- `ai-memory`: Mem0 plus local `docs/memory`
 
 ## Initialize a Project
 
@@ -53,20 +60,20 @@ docs/loops/bugfix-loop.md
 Before implementation:
 
 1. Read `CLAUDE.md`.
-2. Read relevant files in `docs/specs/`, `docs/memory/`, and `docs/loops/`.
-3. If no spec exists, create one before coding.
-4. If no suitable loop exists, create one before coding.
+2. Use `ai-spec` to locate, import, or create specs.
+3. Use `ai-loop` to choose or create the execution loop.
+4. Read relevant files in `docs/specs/`, `docs/memory/`, and `docs/loops/`.
 
 During implementation:
 
 1. Make small scoped changes.
-2. Run verify gates from `docs/verify/verify-checklist.md`.
+2. Use `ai-verify` to run verify gates from `docs/verify/verify-checklist.md`.
 3. Retry only within the loop budget.
 4. Escalate to the user when scope, safety, or verification is unclear.
 
 After implementation:
 
-1. Update memory only with real lessons, boundaries, or pitfalls.
+1. Use `ai-memory` to update memory only with real lessons, boundaries, or pitfalls.
 2. Produce PR evidence using `.github/pull_request_template.md`.
 3. Do not present generated explanations as verification evidence.
 

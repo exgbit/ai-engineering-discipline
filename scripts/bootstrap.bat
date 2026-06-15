@@ -46,8 +46,10 @@ call :copy_file "%FRAMEWORK_ROOT%\templates\loop-template.md" "%TARGET_DIR%\docs
 call :copy_file "%FRAMEWORK_ROOT%\templates\pr-template.md" "%TARGET_DIR%\.github\pull_request_template.md"
 call :copy_file "%FRAMEWORK_ROOT%\examples\test-matrix.example.md" "%TARGET_DIR%\docs\verify\test-matrix.md"
 call :copy_file "%FRAMEWORK_ROOT%\examples\loop-runbook.example.md" "%TARGET_DIR%\docs\loops\bugfix-loop.md"
-call :copy_dir "%FRAMEWORK_ROOT%\skills\ai-engineering-discipline" "%TARGET_DIR%\.codex\skills\ai-engineering-discipline"
-call :copy_dir "%FRAMEWORK_ROOT%\claude-code-skills\ai-engineering-discipline" "%TARGET_DIR%\.claude\skills\ai-engineering-discipline"
+for %%S in (ai-engineering-discipline ai-spec ai-loop ai-verify ai-memory) do (
+  call :copy_dir "%FRAMEWORK_ROOT%\skills\%%S" "%TARGET_DIR%\.codex\skills\%%S"
+  call :copy_dir "%FRAMEWORK_ROOT%\claude-code-skills\%%S" "%TARGET_DIR%\.claude\skills\%%S"
+)
 
 call :write_project_rules "%TARGET_DIR%\docs\memory\project-rules.md"
 call :write_module_map "%TARGET_DIR%\docs\memory\module-map.md"
