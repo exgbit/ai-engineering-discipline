@@ -23,6 +23,8 @@ claude-code-skills/
   ai-memory/                 # Memory step skill, default: Mem0
 adapters/
   default-stack.json        # Default open-source framework choices
+presets/
+  *.json                    # Task/risk presets that hide framework parameters
 framework/
   spec-verify-memory.md     # 核心框架
   integrated-workflow.md    # One-entry integrated workflow
@@ -49,6 +51,7 @@ scripts/
   bootstrap.sh              # macOS / Linux 项目安装脚本
   bootstrap.bat             # Windows 项目安装脚本
   install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
+  run_request.py            # Create managed request from task/risk/requirements
   summarize_metrics.py      # 指标摘要脚本
 skills/
   ai-engineering-discipline/ # Codex orchestrator skill
@@ -149,10 +152,14 @@ The Claude Code skill will:
 
 ## Integrated Workflow
 
-Users should normally use one skill only:
+Users should normally create a managed request instead of writing long prompts:
 
-```text
-Use ai-engineering-discipline to inspect this project and enter development.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "refund approval" \
+  --requirements docs/requirements/refund.md \
+  --risk medium
 ```
 
 The orchestrator skill calls the step skills internally:
@@ -165,6 +172,18 @@ ai-memory -> Mem0 + docs/memory
 ```
 
 This is the difference from using the four frameworks directly: the user does not decide when to run each tool or how to pass artifacts between them. The framework owns the sequence, files, and handoffs. See `framework/integrated-workflow.md`.
+
+The managed request resolves low-level framework parameters from presets:
+
+```text
+task=feature risk=medium requirements=refund.md
+  -> Spec Kit mode and required spec sections
+  -> LangGraph loop/retry/human-gate settings
+  -> Semgrep config/severity/native checks
+  -> Mem0/local-memory write policy
+```
+
+The resolved plan is written to `docs/ai-engineering/current-request.md`.
 
 ## Default Open-Source Adapter Stack
 

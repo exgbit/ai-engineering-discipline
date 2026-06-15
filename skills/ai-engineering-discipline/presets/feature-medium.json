@@ -1,0 +1,36 @@
+{
+  "name": "feature-medium",
+  "task": "feature",
+  "risk": "medium",
+  "description": "Default feature preset for normal product work.",
+  "spec": {
+    "framework": "github-spec-kit",
+    "mode": "feature",
+    "require_non_goals": true,
+    "require_acceptance_criteria": true,
+    "require_edge_cases": true,
+    "require_open_questions": true
+  },
+  "loop": {
+    "framework": "langgraph",
+    "runbook": "feature-slice-loop",
+    "max_retries": 2,
+    "human_gate": "on_verify_failure",
+    "checkpoint": true
+  },
+  "verify": {
+    "framework": "semgrep",
+    "semgrep_config": "auto",
+    "severity": "warning",
+    "native_tests": true,
+    "require_build": true,
+    "require_security_scan": true
+  },
+  "memory": {
+    "framework": "mem0",
+    "local_memory": true,
+    "mem0_write": false,
+    "write_pitfalls": "only_if_failure",
+    "tags": ["feature", "medium-risk"]
+  }
+}

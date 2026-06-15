@@ -2,10 +2,14 @@
 
 This project uses one integrated AI engineering workflow.
 
-You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator:
+You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator through a managed request.
 
-```text
-Use ai-engineering-discipline to inspect this project and enter development.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "my feature" \
+  --requirements docs/requirements/my-feature.md \
+  --risk medium
 ```
 
 ## What Happens Behind the Scenes
@@ -29,12 +33,14 @@ docs/prd/
 docs/product/
 ```
 
-Then ask:
+Then create a managed request:
 
-```text
-Use ai-engineering-discipline.
-I already have requirement documents.
-Import them into specs, create a requirements index, select the first implementation loop, and do not code until the spec and loop are ready.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "first feature" \
+  --requirements docs/requirements \
+  --risk medium
 ```
 
 Expected outputs:
@@ -50,22 +56,31 @@ docs/verify/test-matrix.md
 
 New feature:
 
-```text
-Use ai-engineering-discipline to develop <feature-name>.
-Start from spec and do not code until spec and loop are ready.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "<feature-name>" \
+  --requirements docs/requirements/<feature>.md \
+  --risk medium
 ```
 
 Bug fix:
 
-```text
-Use ai-engineering-discipline to fix this bug.
-Reproduce first, then verify the minimal fix.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task bugfix \
+  --name "<bug-name>" \
+  --requirements docs/requirements/<bug>.md \
+  --risk medium
 ```
 
 PR validation:
 
-```text
-Use ai-engineering-discipline to verify this PR and produce PR evidence.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task verify \
+  --name "pr validation" \
+  --risk medium
 ```
 
 Memory update:
@@ -78,3 +93,9 @@ Only record real rules, boundaries, and pitfalls.
 ## Rule
 
 Most users should not call `ai-spec`, `ai-loop`, `ai-verify`, or `ai-memory` directly. Those are internal steps used by `ai-engineering-discipline`.
+
+After creating a managed request, ask Claude Code:
+
+```text
+Use ai-engineering-discipline to execute docs/ai-engineering/current-request.md.
+```

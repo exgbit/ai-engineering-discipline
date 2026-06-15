@@ -45,6 +45,26 @@ Default sequence:
 
 The user should experience one workflow, not four frameworks.
 
+## Parameterized Request Entry
+
+Prefer managed requests over free-form prompts. Create a request file with:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "refund approval" \
+  --requirements docs/requirements/refund.md \
+  --risk medium
+```
+
+This resolves framework parameters from presets and writes:
+
+```text
+docs/ai-engineering/current-request.md
+```
+
+Then execute that request. Do not ask the user for Spec Kit, LangGraph, Semgrep, or Mem0 parameters unless the preset is blocked.
+
 ## Initialize a Project
 
 If the current directory is the target project:

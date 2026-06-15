@@ -41,6 +41,20 @@ The skill should minimize human setup:
 bootstrap project -> inspect context -> ensure spec -> select loop -> verify -> update memory
 ```
 
+## Parameterized Request Entry
+
+Prefer managed requests over free-form prompts. Create a request file with:
+
+```bash
+python .codex/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "refund approval" \
+  --requirements docs/requirements/refund.md \
+  --risk medium
+```
+
+This resolves framework parameters from presets and writes `docs/ai-engineering/current-request.md`. Execute that request through this orchestrator.
+
 ## Quick Start
 
 When the user asks to initialize a project, run:

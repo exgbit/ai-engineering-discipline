@@ -185,12 +185,15 @@ Use `scripts/install_default_adapters.py <target>` to generate an adapter report
 
 When asked to "implement", "fix", "refactor", or "build":
 
-1. Locate or create the spec.
-2. Select or define the loop.
-3. Implement within scope.
-4. Run verify gates.
-5. Update memory if needed.
-6. Report evidence, risks, and changed files.
+1. Prefer a managed request in `docs/ai-engineering/current-request.md`.
+2. If no request exists, create one with `scripts/run_request.py` or the installed skill script.
+3. Use preset-resolved parameters instead of asking the user for Spec Kit, LangGraph, Semgrep, or Mem0 flags.
+4. Locate or create the spec.
+5. Select or define the loop.
+6. Implement within scope only when the request allows execution.
+7. Run verify gates.
+8. Update memory if needed.
+9. Report evidence, risks, and changed files.
 
 When asked to "write an article" or "prepare a report":
 

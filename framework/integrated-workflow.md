@@ -2,10 +2,14 @@
 
 This framework is designed so users do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately.
 
-The user-facing interface is one workflow:
+The user-facing interface is one managed request:
 
-```text
-ai-engineering-discipline
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "refund approval" \
+  --requirements docs/requirements/refund.md \
+  --risk medium
 ```
 
 Internally, the framework routes work through four integrated steps:
@@ -30,29 +34,59 @@ Using the four frameworks directly requires users to know:
 
 This framework owns those decisions. The user asks for a development task; the orchestrator calls the right step skills and keeps the artifacts connected.
 
+## Preset Resolver
+
+Users should not provide low-level framework parameters. They provide intent:
+
+```text
+task + risk + requirement path + optional execution flag
+```
+
+The preset resolver expands this into framework parameters:
+
+```text
+feature + medium
+  -> Spec Kit mode=feature, acceptance criteria required
+  -> LangGraph runbook=feature-slice-loop, max_retries=2, human_gate=on_verify_failure
+  -> Semgrep config=auto, severity=warning, native_tests=true, require_build=true
+  -> Mem0/local memory tags=[feature, medium-risk]
+```
+
+Resolved parameters are written to:
+
+```text
+docs/ai-engineering/current-request.md
+```
+
 ## Default User Flow
 
 1. Install the framework into a target project.
 2. Open Claude Code or Codex in that project.
-3. Ask the orchestrator to enter development.
+3. Create a managed request with `run_request.py`.
 4. The orchestrator scans the project, imports or creates specs, selects a loop, verifies results, and writes memory.
 
-Prompt:
+Command:
 
-```text
-Use ai-engineering-discipline to inspect this project and enter development.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "my feature" \
+  --requirements docs/requirements/my-feature.md \
+  --risk medium
 ```
 
 ## Existing Requirements
 
 If requirements already exist, the user should not rewrite them.
 
-Prompt:
+Command:
 
-```text
-Use ai-engineering-discipline.
-I already have requirement documents.
-Import them into specs, create a requirements index, select the first implementation loop, and do not code until the spec and loop are ready.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
+  --task feature \
+  --name "first feature" \
+  --requirements docs/requirements \
+  --risk medium
 ```
 
 Expected artifacts:
@@ -69,22 +103,20 @@ docs/memory/project-rules.md
 
 New feature:
 
-```text
-Use ai-engineering-discipline to develop <feature-name>.
-Start from spec and do not code until spec and loop are ready.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task feature --name "<feature-name>" --requirements docs/requirements/<feature>.md --risk medium
 ```
 
 Bug fix:
 
-```text
-Use ai-engineering-discipline to fix this bug.
-Reproduce first, then verify the minimal fix.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task bugfix --name "<bug-name>" --requirements docs/requirements/<bug>.md --risk medium
 ```
 
 PR validation:
 
-```text
-Use ai-engineering-discipline to verify this PR and produce PR evidence.
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task verify --name "pr validation" --risk medium
 ```
 
 Memory update:
