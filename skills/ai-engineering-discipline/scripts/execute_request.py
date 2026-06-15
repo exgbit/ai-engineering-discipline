@@ -76,6 +76,14 @@ def slugify(value: str) -> str:
     return "".join(result).strip("-") or "request"
 
 
+def path_is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False
+
+
 def extract_section(text: str, heading: str) -> str:
     pattern = rf"^## {re.escape(heading)}\s*$([\s\S]*?)(?=^## |\Z)"
     match = re.search(pattern, text, flags=re.MULTILINE)
@@ -107,7 +115,7 @@ def target_project_path(target: Path, raw: str, label: str) -> Path:
     path = Path(raw).expanduser()
     candidate = path if path.is_absolute() else target_root / path
     candidate = candidate.resolve()
-    if candidate != target_root and not candidate.is_relative_to(target_root):
+    if candidate != target_root and not path_is_relative_to(candidate, target_root):
         raise SystemExit(f"{label} must stay inside target project: {candidate}")
     return candidate
 

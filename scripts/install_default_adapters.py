@@ -11,8 +11,19 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_STACK = ROOT / "adapters" / "default-stack.json"
+def default_stack_path() -> Path:
+    script = Path(__file__).resolve()
+    candidates = [
+        script.parents[1] / "adapters" / "default-stack.json",
+        script.parents[1] / "references" / "default-stack.json",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise SystemExit(
+        "Could not find default-stack.json. Expected adapters/default-stack.json "
+        "from the framework repo or references/default-stack.json from an installed skill."
+    )
 
 
 def run_check_command(command: list[str]) -> bool:
@@ -119,7 +130,7 @@ def main() -> int:
     if not target.exists() or not target.is_dir():
         raise SystemExit(f"Target project does not exist: {target}")
 
-    stack = json.loads(DEFAULT_STACK.read_text(encoding="utf-8"))
+    stack = json.loads(default_stack_path().read_text(encoding="utf-8"))
     layers = stack["layers"]
     if not isinstance(layers, dict):
         raise SystemExit("Invalid stack: missing layers object")

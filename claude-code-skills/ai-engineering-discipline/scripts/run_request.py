@@ -53,6 +53,14 @@ def slugify(value: str) -> str:
     return "".join(result).strip("-") or "request"
 
 
+def path_is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False
+
+
 def run_script(script: Path, target: Path) -> None:
     subprocess.run([sys.executable, str(script), str(target)], check=True)
 
@@ -106,7 +114,7 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
                 "Requirement path does not exist: "
                 f"{raw_source} (tried {Path.cwd() / raw_source} and {target / raw_source})"
             )
-        if source == dest_dir or source.is_relative_to(dest_dir):
+        if source == dest_dir or path_is_relative_to(source, dest_dir):
             if source.is_dir():
                 for item in sorted(source.rglob("*")):
                     if item.is_file() and item.suffix.lower() in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}:
@@ -176,7 +184,7 @@ def write_request(
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     req_lines = "\n".join(
-        f"- `{p.relative_to(target)}`" if p.is_relative_to(target) else f"- `{p}`"
+        f"- `{p.relative_to(target)}`" if path_is_relative_to(p, target) else f"- `{p}`"
         for p in copied_requirements
     ) or "- None"
 

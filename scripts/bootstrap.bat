@@ -65,9 +65,9 @@ call :write_module_map "%TARGET_DIR%\docs\memory\module-map.md"
 call :write_pitfalls "%TARGET_DIR%\docs\memory\pitfalls.md"
 
 if "%INSTALL_ADAPTERS%"=="1" (
-  python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%" --execute
+  call :run_python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%" --execute
 ) else (
-  python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%"
+  call :run_python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%"
 )
 
 echo.
@@ -112,8 +112,20 @@ if exist "%DST%\" if not "%FORCE%"=="1" (
 )
 if not exist "%DST%\" mkdir "%DST%"
 xcopy "%SRC%\*" "%DST%\" /E /I /Y >nul
+for /d /r "%DST%" %%D in (__pycache__) do if exist "%%D" rd /s /q "%%D"
+for /r "%DST%" %%F in (*.pyc) do if exist "%%F" del /q "%%F"
+for /r "%DST%" %%F in (.DS_Store) do if exist "%%F" del /q "%%F"
 echo installed: %DST%
 exit /b 0
+
+:run_python
+where py >nul 2>nul
+if not errorlevel 1 (
+  py -3 %*
+  exit /b %ERRORLEVEL%
+)
+python %*
+exit /b %ERRORLEVEL%
 
 :write_project_rules
 set "DST=%~1"

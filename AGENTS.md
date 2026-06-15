@@ -15,7 +15,7 @@ python scripts/execute_request.py /path/to/project --run-native-checks
 python scripts/summarize_metrics.py data/sample-adoption-metrics.csv
 ```
 
-Validate changed Python with `python -m py_compile scripts/*.py`. Validate shell wrappers with `bash -n scripts/*.sh`.
+Validate changed Python with `python -m py_compile scripts/*.py`. Validate shell wrappers with `bash -n scripts/*.sh`. For skill changes, compare root and installed copies with `diff -q`, then run a smoke test against a temporary target project.
 
 ## Coding Style & Naming Conventions
 
@@ -23,7 +23,7 @@ Python scripts use standard-library dependencies, type hints where practical, an
 
 ## Testing Guidelines
 
-There is no single test framework. Use focused smoke tests against temporary target projects under `/tmp`, then verify generated files in `docs/specs/`, `docs/loops/`, `docs/verify/`, and `docs/memory/`. When changing skills, run the local skill validator for both `skills/` and `claude-code-skills/`.
+There is no single test framework. Use focused smoke tests against temporary target projects under `/tmp`, then verify generated files in `docs/specs/`, `docs/loops/`, `docs/verify/`, and `docs/memory/`. When changing skills, verify both `skills/` and `claude-code-skills/` stay in sync where shared scripts are expected.
 
 ## Commit & Pull Request Guidelines
 

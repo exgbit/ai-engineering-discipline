@@ -42,6 +42,11 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRAMEWORK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+else
+  PYTHON=python
+fi
 
 if [[ ! -d "$TARGET_DIR" ]]; then
   echo "Target project does not exist: $TARGET_DIR" >&2
@@ -101,7 +106,9 @@ install_skill_dir() {
     echo "skip existing: $dst"
   else
     mkdir -p "$dst"
-    cp -R "$src/." "$dst/"
+    tar -C "$src" --exclude='__pycache__' --exclude='*.pyc' --exclude='.DS_Store' -cf - . | tar -C "$dst" -xf -
+    find "$dst" -type d -name __pycache__ -prune -exec rm -rf {} +
+    find "$dst" -type f \( -name '*.pyc' -o -name '.DS_Store' \) -delete
     echo "installed: $dst"
   fi
 }
@@ -139,9 +146,9 @@ write_file_if_missing "$TARGET_DIR/docs/memory/pitfalls.md" "Pitfalls" \
 - Verification to add next time:"
 
 if [[ "$INSTALL_ADAPTERS" == "1" ]]; then
-  python "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR" --execute
+  "$PYTHON" "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR" --execute
 else
-  python "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR"
+  "$PYTHON" "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR"
 fi
 
 echo

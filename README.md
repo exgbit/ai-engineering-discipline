@@ -92,6 +92,8 @@ cd C:\path\to\ai-engineering-discipline
 scripts\bootstrap.bat C:\path\to\target-project
 ```
 
+The shell wrappers prefer `python3` and fall back to `python`. Windows wrappers prefer `py -3` and fall back to `python`. Bootstrap excludes `__pycache__`, `.pyc`, and `.DS_Store` files when installing skills.
+
 By default, existing files are not overwritten. To reinstall framework files, add `--force`:
 
 ```bash
