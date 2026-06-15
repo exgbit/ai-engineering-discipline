@@ -17,6 +17,7 @@ framework/
   spec-verify-memory.md     # 核心框架
   adoption-roadmap.md       # 公司落地路线
   operating-model.md        # 团队协作模型
+  company-pilot-playbook.md # 公司试点操作手册
 templates/
   spec-template.md          # 需求 / 设计规格模板
   adr-template.md           # 架构决策记录模板
@@ -26,9 +27,12 @@ templates/
 data/
   methodology-signals.csv   # 方法论信号样本
   metrics-schema.csv        # 推广效果指标
+  sample-adoption-metrics.csv # synthetic 示例指标
 examples/
   project-memory.example.md # 项目记忆示例
   test-matrix.example.md    # 需求到测试映射示例
+scripts/
+  summarize_metrics.py      # 指标摘要脚本
 ```
 
 ## How To Use
@@ -49,3 +53,13 @@ examples/
 ## Positioning
 
 这个框架不是某个 AI IDE、Agent 或模型的替代品，而是它们之上的工程纪律层。工具可以替换，纪律必须保留。
+
+## Metrics Summary
+
+Run the sample report:
+
+```bash
+python scripts/summarize_metrics.py data/sample-adoption-metrics.csv
+```
+
+The bundled sample data is synthetic. Replace it with your team's pilot metrics before using the results in internal reports or public writing.
