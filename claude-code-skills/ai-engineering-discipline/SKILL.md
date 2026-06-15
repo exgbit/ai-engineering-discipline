@@ -20,6 +20,31 @@ Each step skill owns one part of the default framework:
 - `ai-verify`: Semgrep plus native tests
 - `ai-memory`: Mem0 plus local `docs/memory`
 
+## Integrated Workflow
+
+This framework's default behavior is one integrated workflow. Hide the step skills behind this orchestrator unless the user explicitly asks to operate a single step.
+
+Do not ask the user to choose between Spec Kit, LangGraph, Semgrep, or Mem0. Use the default mapping:
+
+```text
+Spec   -> ai-spec   -> GitHub Spec Kit
+Loop   -> ai-loop   -> LangGraph
+Verify -> ai-verify -> Semgrep + native tests
+Memory -> ai-memory -> Mem0 + local docs/memory
+```
+
+Default sequence:
+
+1. Initialize framework files if missing.
+2. Run project inspection.
+3. If requirements exist, ask `ai-spec` behavior to import them into `docs/specs/`.
+4. Select or create the first loop with `ai-loop`.
+5. Refuse to code until spec and loop are ready.
+6. After implementation, run `ai-verify`.
+7. Finally update memory with `ai-memory`.
+
+The user should experience one workflow, not four frameworks.
+
 ## Initialize a Project
 
 If the current directory is the target project:

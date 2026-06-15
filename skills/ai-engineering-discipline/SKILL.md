@@ -20,6 +20,21 @@ Each step skill owns one default open-source framework:
 - `ai-verify`: Semgrep plus native tests
 - `ai-memory`: Mem0 plus local `docs/memory`
 
+## Integrated Workflow
+
+This framework's default behavior is one integrated workflow. Keep `ai-spec`, `ai-loop`, `ai-verify`, and `ai-memory` behind this orchestrator unless the user explicitly asks to operate a single step.
+
+Default mapping:
+
+```text
+Spec   -> ai-spec   -> GitHub Spec Kit
+Loop   -> ai-loop   -> LangGraph
+Verify -> ai-verify -> Semgrep + native tests
+Memory -> ai-memory -> Mem0 + local docs/memory
+```
+
+If requirement documents already exist, import them first with the `ai-spec` workflow, create `docs/specs/requirements-index.md`, then select a loop. Do not code until spec and loop are ready.
+
 The skill should minimize human setup:
 
 ```text

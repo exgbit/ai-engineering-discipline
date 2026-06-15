@@ -25,6 +25,7 @@ adapters/
   default-stack.json        # Default open-source framework choices
 framework/
   spec-verify-memory.md     # 核心框架
+  integrated-workflow.md    # One-entry integrated workflow
   loop-engineering.md       # Loop Engineering 执行模型
   adoption-roadmap.md       # 公司落地路线
   operating-model.md        # 团队协作模型
@@ -145,6 +146,25 @@ The Claude Code skill will:
 3. guide Claude through `Spec -> Loop -> Verify -> Memory`;
 4. stop before unsafe or unverifiable work.
 
+## Integrated Workflow
+
+Users should normally use one skill only:
+
+```text
+Use ai-engineering-discipline to inspect this project and enter development.
+```
+
+The orchestrator skill calls the step skills internally:
+
+```text
+ai-spec   -> GitHub Spec Kit
+ai-loop   -> LangGraph
+ai-verify -> Semgrep + native tests
+ai-memory -> Mem0 + docs/memory
+```
+
+This is the difference from using the four frameworks directly: the user does not decide when to run each tool or how to pass artifacts between them. The framework owns the sequence, files, and handoffs. See `framework/integrated-workflow.md`.
+
 ## Default Open-Source Adapter Stack
 
 The framework uses one opinionated default GitHub/open-source framework per layer:
@@ -182,7 +202,15 @@ This writes `docs/adapters/default-stack.md` in the target project with detected
 
 ## If Requirements Already Exist
 
-Use the step skills directly:
+Use the orchestrator:
+
+```text
+Use ai-engineering-discipline.
+I already have requirement documents.
+Import them into specs, create a requirements index, select the first feature loop, and do not code until the spec and loop are ready.
+```
+
+Advanced users may call the step skills directly:
 
 ```text
 Use ai-spec to import existing requirement documents into docs/specs/.
