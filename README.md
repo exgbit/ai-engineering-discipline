@@ -40,6 +40,8 @@ framework/
   operating-model.md        # 团队协作模型
   company-pilot-playbook.md # 公司试点操作手册
 templates/
+  ai-discipline-config.json # Target-project defaults for CLI behavior
+  github-ai-discipline.yml  # GitHub Actions verify/report workflow
   agents-template.md        # Target-project AGENTS.md operating protocol
   spec-template.md          # 需求 / 设计规格模板
   adr-template.md           # 架构决策记录模板
@@ -127,6 +129,7 @@ This installs:
 The installer creates:
 
 ```text
+.ai-discipline.json
 CLAUDE.md
 AGENTS.md
 .claude/skills/ai-engineering-discipline/
@@ -155,6 +158,7 @@ docs/memory/pitfalls.md
 docs/loops/loop-template.md
 docs/loops/bugfix-loop.md
 .github/pull_request_template.md
+.github/workflows/ai-discipline.yml
 ```
 
 After install, read `docs/AI_ENGINEERING_START_HERE.md`, then open the target project in Claude Code and run:
@@ -217,6 +221,28 @@ scripts\ai-discipline.bat report --project C:\path\to\target-project
 ```
 
 `report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with artifact coverage, required/executed/skipped checks, merge readiness, memory-candidate count, loop-state coverage, and changed-file count when Git is available.
+
+Project defaults live in `.ai-discipline.json`. Initialize or inspect them with:
+
+```bash
+./scripts/ai-discipline.sh config --project /path/to/target-project --init
+./scripts/ai-discipline.sh config --project /path/to/target-project
+```
+
+For mature teams, set these defaults in the target project:
+
+```json
+{
+  "defaults": {
+    "verify": true,
+    "run_semgrep": true,
+    "run_native_checks": true,
+    "fail_on_verify_failure": true
+  }
+}
+```
+
+The installed `.github/workflows/ai-discipline.yml` runs the same verify/report gate in CI.
 
 The lower-level request script remains available for installed Claude/Codex skills:
 

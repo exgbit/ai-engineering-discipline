@@ -23,6 +23,15 @@ python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report 
 
 `report` writes `docs/reports/pilot-report.md` and `.json` for team review and pilot metrics.
 
+Defaults live in `.ai-discipline.json`. Show or initialize them with:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py config .
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py config . --init
+```
+
+For CI or mature projects, set `verify`, `run_semgrep`, `run_native_checks`, and `fail_on_verify_failure` to `true`.
+
 ## Claude Code Commands
 
 If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstrap.bat`, use:

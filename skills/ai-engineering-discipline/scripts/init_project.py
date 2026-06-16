@@ -333,6 +333,15 @@ python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report 
 
 `report` writes `docs/reports/pilot-report.md` and `.json` for team review and pilot metrics.
 
+Defaults live in `.ai-discipline.json`. Show or initialize them with:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py config .
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py config . --init
+```
+
+For CI or mature projects, set `verify`, `run_semgrep`, `run_native_checks`, and `fail_on_verify_failure` to `true`.
+
 ## Claude Code Commands
 
 If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstrap.bat`, use:
@@ -663,7 +672,66 @@ Record repeated bugs, failed assumptions, review findings, and incident lessons 
 """
 
 
+AI_DISCIPLINE_CONFIG = """{
+  "version": 1,
+  "defaults": {
+    "risk": "medium",
+    "verify": false,
+    "run_semgrep": false,
+    "run_native_checks": false,
+    "fail_on_verify_failure": false,
+    "timeout_seconds": 600
+  },
+  "reports": {
+    "write_pilot_report": true
+  }
+}
+"""
+
+
+AI_DISCIPLINE_WORKFLOW = """name: AI Engineering Discipline
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Semgrep
+        run: python -m pip install semgrep
+
+      - name: Verify current AI request
+        run: |
+          python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py verify . --fail-on-verify-failure
+
+      - name: Write pilot report
+        if: always()
+        run: |
+          python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
+
+      - name: Upload AI discipline reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-discipline-reports
+          path: |
+            docs/verify/verification-results.json
+            docs/verify/verification-results.md
+            docs/reports/pilot-report.json
+            docs/reports/pilot-report.md
+"""
+
+
 FILES = {
+    ".ai-discipline.json": AI_DISCIPLINE_CONFIG,
     "CLAUDE.md": CLAUDE_MD,
     "AGENTS.md": AGENTS_MD,
     "docs/AI_ENGINEERING_START_HERE.md": START_HERE,
@@ -677,6 +745,7 @@ FILES = {
     "docs/loops/loop-template.md": LOOP_TEMPLATE,
     "docs/loops/bugfix-loop.md": BUGFIX_LOOP,
     ".github/pull_request_template.md": PR_TEMPLATE,
+    ".github/workflows/ai-discipline.yml": AI_DISCIPLINE_WORKFLOW,
     ".claude/commands/ai-start.md": AI_START_COMMAND,
     ".claude/commands/ai-request.md": AI_REQUEST_COMMAND,
     ".claude/commands/ai-execute.md": AI_EXECUTE_COMMAND,

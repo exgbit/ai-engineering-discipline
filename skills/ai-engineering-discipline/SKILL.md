@@ -68,6 +68,13 @@ python <skill_dir>/scripts/ai_discipline.py report .
 
 `report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with merge readiness, artifact coverage, check counts, loop-state coverage, and memory-candidate counts.
 
+Read `.ai-discipline.json` for project defaults before assuming verification behavior. Show or initialize it with:
+
+```bash
+python <skill_dir>/scripts/ai_discipline.py config .
+python <skill_dir>/scripts/ai_discipline.py config . --init
+```
+
 Managed requests are still the underlying mechanism. Create a request file with:
 
 ```bash
@@ -143,6 +150,7 @@ docs/memory/pitfalls.md
 docs/loops/loop-template.md
 docs/loops/bugfix-loop.md
 .github/pull_request_template.md
+.github/workflows/ai-discipline.yml
 ```
 
 ### 2. Inspect the Target Project

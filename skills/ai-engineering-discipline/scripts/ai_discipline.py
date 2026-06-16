@@ -14,6 +14,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = "<!-- ai-engineering:generated -->"
+CONFIG_NAME = ".ai-discipline.json"
+DEFAULT_CONFIG: dict[str, object] = {
+    "version": 1,
+    "defaults": {
+        "risk": "medium",
+        "verify": False,
+        "run_semgrep": False,
+        "run_native_checks": False,
+        "fail_on_verify_failure": False,
+        "timeout_seconds": 600,
+    },
+    "reports": {
+        "write_pilot_report": True,
+    },
+}
 
 
 def path_is_relative_to(path: Path, base: Path) -> bool:
@@ -70,6 +85,37 @@ def read_json(path: Path) -> dict[str, object]:
     except json.JSONDecodeError:
         return {"parse_error": True}
     return data if isinstance(data, dict) else {}
+
+
+def load_config(target: Path) -> dict[str, object]:
+    config = read_json(target / CONFIG_NAME)
+    return config if config else DEFAULT_CONFIG.copy()
+
+
+def config_defaults(target: Path) -> dict[str, object]:
+    defaults = load_config(target).get("defaults", {})
+    return defaults if isinstance(defaults, dict) else {}
+
+
+def default_value(target: Path, key: str, fallback: object) -> object:
+    return config_defaults(target).get(key, fallback)
+
+
+def resolved_bool(args: argparse.Namespace, target: Path, key: str, fallback: bool = False) -> bool:
+    value = getattr(args, key, None)
+    if value is None:
+        return bool(default_value(target, key, fallback))
+    return bool(value)
+
+
+def resolved_timeout(args: argparse.Namespace, target: Path) -> int:
+    value = getattr(args, "timeout_seconds", None)
+    if value is None:
+        value = default_value(target, "timeout_seconds", 600)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 600
 
 
 def read_text(path: Path) -> str:
@@ -257,8 +303,9 @@ def command_start(args: argparse.Namespace) -> int:
 def command_request(args: argparse.Namespace) -> int:
     target = target_from_args(args)
     command_args = [str(target), "--task", args.task, "--name", args.name]
-    if args.risk:
-        command_args.extend(["--risk", args.risk])
+    risk = args.risk or str(default_value(target, "risk", "") or "")
+    if risk:
+        command_args.extend(["--risk", risk])
     if args.preset:
         command_args.extend(["--preset", args.preset])
     for requirement in args.requirements or []:
@@ -280,15 +327,16 @@ def build_execute_args(args: argparse.Namespace, target: Path) -> list[str]:
         command_args.append("--force")
     if getattr(args, "skip_init", False):
         command_args.append("--skip-init")
-    run_semgrep = getattr(args, "run_semgrep", False) or getattr(args, "verify", False)
-    run_native_checks = getattr(args, "run_native_checks", False) or getattr(args, "verify", False)
+    verify_all = resolved_bool(args, target, "verify", False)
+    run_semgrep = resolved_bool(args, target, "run_semgrep", False) or verify_all
+    run_native_checks = resolved_bool(args, target, "run_native_checks", False) or verify_all
     if run_semgrep:
         command_args.append("--run-semgrep")
     if run_native_checks:
         command_args.append("--run-native-checks")
-    if getattr(args, "fail_on_verify_failure", False):
+    if resolved_bool(args, target, "fail_on_verify_failure", False):
         command_args.append("--fail-on-verify-failure")
-    command_args.extend(["--timeout-seconds", str(getattr(args, "timeout_seconds", 600))])
+    command_args.extend(["--timeout-seconds", str(resolved_timeout(args, target))])
     return command_args
 
 
@@ -332,6 +380,25 @@ def command_doctor(args: argparse.Namespace) -> int:
     return run_python(script_path("doctor.py"), command_args)
 
 
+def write_default_config(target: Path, force: bool) -> Path:
+    path = target / CONFIG_NAME
+    if path.exists() and not force:
+        return path
+    path.write_text(json.dumps(DEFAULT_CONFIG, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def command_config(args: argparse.Namespace) -> int:
+    target = target_from_args(args)
+    if args.init:
+        path = write_default_config(target, args.force)
+        print(f"wrote: {path}")
+        return 0
+    config = load_config(target)
+    print(json.dumps(config, ensure_ascii=False, indent=2))
+    return 0
+
+
 def add_common_project(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("target", nargs="?", help="Target project path. Defaults to current directory.")
     parser.add_argument("--project", default=".", help="Target project path. Defaults to current directory.")
@@ -369,11 +436,15 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--execute", action="store_true")
     run.add_argument("--skip-init", action="store_true")
     run.add_argument("--force", action="store_true")
-    run.add_argument("--verify", action="store_true", help="Run Semgrep and native checks before writing the report.")
-    run.add_argument("--run-semgrep", action="store_true")
-    run.add_argument("--run-native-checks", action="store_true")
-    run.add_argument("--timeout-seconds", type=int, default=600)
-    run.add_argument("--fail-on-verify-failure", action="store_true")
+    run.add_argument("--verify", dest="verify", action="store_true", default=None, help="Run Semgrep and native checks before writing the report.")
+    run.add_argument("--no-verify", dest="verify", action="store_false", help="Disable verification even if configured by default.")
+    run.add_argument("--run-semgrep", dest="run_semgrep", action="store_true", default=None)
+    run.add_argument("--no-run-semgrep", dest="run_semgrep", action="store_false")
+    run.add_argument("--run-native-checks", dest="run_native_checks", action="store_true", default=None)
+    run.add_argument("--no-run-native-checks", dest="run_native_checks", action="store_false")
+    run.add_argument("--timeout-seconds", type=int)
+    run.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
+    run.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
     run.set_defaults(func=command_run)
 
     execute = subparsers.add_parser("execute", help="Generate workflow artifacts and optionally run checks.")
@@ -381,10 +452,15 @@ def build_parser() -> argparse.ArgumentParser:
     execute.add_argument("--request")
     execute.add_argument("--force", action="store_true")
     execute.add_argument("--skip-init", action="store_true")
-    execute.add_argument("--run-semgrep", action="store_true")
-    execute.add_argument("--run-native-checks", action="store_true")
-    execute.add_argument("--timeout-seconds", type=int, default=600)
-    execute.add_argument("--fail-on-verify-failure", action="store_true")
+    execute.add_argument("--verify", dest="verify", action="store_true", default=None, help="Run Semgrep and native checks.")
+    execute.add_argument("--no-verify", dest="verify", action="store_false")
+    execute.add_argument("--run-semgrep", dest="run_semgrep", action="store_true", default=None)
+    execute.add_argument("--no-run-semgrep", dest="run_semgrep", action="store_false")
+    execute.add_argument("--run-native-checks", dest="run_native_checks", action="store_true", default=None)
+    execute.add_argument("--no-run-native-checks", dest="run_native_checks", action="store_false")
+    execute.add_argument("--timeout-seconds", type=int)
+    execute.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
+    execute.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
     execute.set_defaults(func=command_execute)
 
     verify = subparsers.add_parser("verify", help="Run native checks and Semgrep for the current request.")
@@ -392,8 +468,9 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--request")
     verify.add_argument("--force", action="store_true")
     verify.add_argument("--skip-init", action="store_true")
-    verify.add_argument("--timeout-seconds", type=int, default=600)
-    verify.add_argument("--fail-on-verify-failure", action="store_true")
+    verify.add_argument("--timeout-seconds", type=int)
+    verify.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
+    verify.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
     verify.set_defaults(func=command_verify)
 
     report = subparsers.add_parser("report", help="Write docs/reports/pilot-report.md and .json.")
@@ -404,6 +481,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_project(doctor)
     doctor.add_argument("--fail-on-error", action="store_true")
     doctor.set_defaults(func=command_doctor)
+
+    config = subparsers.add_parser("config", help="Show or initialize .ai-discipline.json.")
+    add_common_project(config)
+    config.add_argument("--init", action="store_true", help="Write default .ai-discipline.json.")
+    config.add_argument("--force", action="store_true", help="Overwrite existing config when used with --init.")
+    config.set_defaults(func=command_config)
 
     return parser
 

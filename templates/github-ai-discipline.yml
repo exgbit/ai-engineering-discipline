@@ -1,0 +1,38 @@
+name: AI Engineering Discipline
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Semgrep
+        run: python -m pip install semgrep
+
+      - name: Verify current AI request
+        run: |
+          python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py verify . --fail-on-verify-failure
+
+      - name: Write pilot report
+        if: always()
+        run: |
+          python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
+
+      - name: Upload AI discipline reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-discipline-reports
+          path: |
+            docs/verify/verification-results.json
+            docs/verify/verification-results.md
+            docs/reports/pilot-report.json
+            docs/reports/pilot-report.md

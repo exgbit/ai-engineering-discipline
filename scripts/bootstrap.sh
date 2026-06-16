@@ -84,17 +84,20 @@ mkdir -p \
   "$TARGET_DIR/docs/memory" \
   "$TARGET_DIR/docs/loops" \
   "$TARGET_DIR/.github" \
+  "$TARGET_DIR/.github/workflows" \
   "$TARGET_DIR/.claude/commands" \
   "$TARGET_DIR/.claude/skills" \
   "$TARGET_DIR/.codex/skills"
 
 copy_file "$FRAMEWORK_ROOT/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
+copy_file "$FRAMEWORK_ROOT/templates/ai-discipline-config.json" "$TARGET_DIR/.ai-discipline.json"
 copy_file "$FRAMEWORK_ROOT/templates/agents-template.md" "$TARGET_DIR/AGENTS.md"
 copy_file "$FRAMEWORK_ROOT/templates/spec-template.md" "$TARGET_DIR/docs/specs/spec-template.md"
 copy_file "$FRAMEWORK_ROOT/templates/verify-checklist.md" "$TARGET_DIR/docs/verify/verify-checklist.md"
 copy_file "$FRAMEWORK_ROOT/templates/memory-entry.md" "$TARGET_DIR/docs/memory/memory-entry.md"
 copy_file "$FRAMEWORK_ROOT/templates/loop-template.md" "$TARGET_DIR/docs/loops/loop-template.md"
 copy_file "$FRAMEWORK_ROOT/templates/pr-template.md" "$TARGET_DIR/.github/pull_request_template.md"
+copy_file "$FRAMEWORK_ROOT/templates/github-ai-discipline.yml" "$TARGET_DIR/.github/workflows/ai-discipline.yml"
 copy_file "$FRAMEWORK_ROOT/templates/start-here.md" "$TARGET_DIR/docs/AI_ENGINEERING_START_HERE.md"
 copy_file "$FRAMEWORK_ROOT/examples/test-matrix.example.md" "$TARGET_DIR/docs/verify/test-matrix.md"
 copy_file "$FRAMEWORK_ROOT/examples/loop-runbook.example.md" "$TARGET_DIR/docs/loops/bugfix-loop.md"

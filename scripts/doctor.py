@@ -72,10 +72,12 @@ def command_content_check(target: Path, name: str, required_text: str) -> Check:
 def collect_checks(target: Path) -> list[Check]:
     checks = [
         Check("ok", "python", f"{sys.executable} ({sys.version.split()[0]})"),
+        file_check(target, ".ai-discipline.json", required=False),
         file_check(target, "CLAUDE.md"),
         file_check(target, "AGENTS.md"),
         file_check(target, "docs/AI_ENGINEERING_START_HERE.md"),
         file_check(target, ".github/pull_request_template.md"),
+        file_check(target, ".github/workflows/ai-discipline.yml", required=False),
         dir_check(target, "docs/specs"),
         dir_check(target, "docs/verify"),
         dir_check(target, "docs/memory"),
