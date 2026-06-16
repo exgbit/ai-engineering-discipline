@@ -4,6 +4,25 @@ This project uses one integrated AI engineering workflow.
 
 You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator through a managed request.
 
+## Unified CLI
+
+When the unified script is available, prefer it over individual helper scripts:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py run . --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium --verify
+```
+
+For separate steps:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py request . --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute .
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py verify . --fail-on-verify-failure
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
+```
+
+`report` writes `docs/reports/pilot-report.md` and `.json` for team review and pilot metrics.
+
 ## Claude Code Commands
 
 If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstrap.bat`, use:

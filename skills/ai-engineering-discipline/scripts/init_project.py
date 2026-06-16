@@ -314,6 +314,25 @@ This project uses one integrated AI engineering workflow.
 
 You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator through a managed request.
 
+## Unified CLI
+
+When the unified script is available, prefer it over individual helper scripts:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py run . --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium --verify
+```
+
+For separate steps:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py request . --task feature --name "my feature" --requirements docs/requirements/my-feature.md --risk medium
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute .
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py verify . --fail-on-verify-failure
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
+```
+
+`report` writes `docs/reports/pilot-report.md` and `.json` for team review and pilot metrics.
+
 ## Claude Code Commands
 
 If this project was installed through `scripts/bootstrap.sh` or `scripts/bootstrap.bat`, use:
@@ -515,7 +534,7 @@ if command -v python3 >/dev/null 2>&1; then PYTHON=python3; else PYTHON=python; 
 "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/execute_request.py . $ARGUMENTS
 ```
 
-Read `docs/ai-engineering/execution-report.md` and the generated spec, loop, verify, and memory artifacts. If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
+Read `docs/ai-engineering/execution-report.md`, generated spec, loop, `docs/loops/current-loop-run.md`, verify, memory plan, and `docs/memory/memory-candidates.md`. If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`; the JSON includes `can_merge`, required checks, skipped required checks, and blocking reasons.
 
 If the command exits non-zero, still read `docs/ai-engineering/execution-report.md`; it may contain a generated blocked report with the next `/ai-request` command.
 """

@@ -66,6 +66,13 @@ def command_for(layer: dict[str, object]) -> list[str]:
     return command
 
 
+def executable_command_for(layer: dict[str, object]) -> list[str]:
+    command = command_for(layer)
+    if command and command[0] == "python":
+        return [sys.executable, *command[1:]]
+    return command
+
+
 def write_report(target: Path, stack: dict[str, object], statuses: dict[str, str]) -> None:
     adapters_dir = target / "docs" / "adapters"
     adapters_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +102,7 @@ def write_report(target: Path, stack: dict[str, object], statuses: dict[str, str
     )
     for layer_name, layer in layers.items():
         assert isinstance(layer, dict)
-        command = command_for(layer)
+        command = executable_command_for(layer)
         lines.append(f"### {layer_name}: {layer['framework']}")
         lines.append("")
         lines.append("```bash")
@@ -107,7 +114,7 @@ def write_report(target: Path, stack: dict[str, object], statuses: dict[str, str
 
 
 def execute_install(layer_name: str, layer: dict[str, object]) -> None:
-    command = command_for(layer)
+    command = executable_command_for(layer)
     if not command:
         print(f"skip {layer_name}: no install command")
         return

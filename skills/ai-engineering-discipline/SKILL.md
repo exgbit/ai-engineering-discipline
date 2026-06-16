@@ -43,7 +43,32 @@ bootstrap project -> inspect context -> ensure spec -> select loop -> verify -> 
 
 ## Parameterized Request Entry
 
-Prefer managed requests over free-form prompts. Create a request file with:
+Prefer the unified CLI when it is available:
+
+```bash
+python <skill_dir>/scripts/ai_discipline.py run . \
+  --task feature \
+  --name "refund approval" \
+  --requirements docs/requirements/refund.md \
+  --risk medium \
+  --verify
+```
+
+For separate steps:
+
+```bash
+python <skill_dir>/scripts/ai_discipline.py request . \
+  --task feature \
+  --name "refund approval" \
+  --requirements docs/requirements/refund.md \
+  --risk medium
+python <skill_dir>/scripts/ai_discipline.py execute .
+python <skill_dir>/scripts/ai_discipline.py report .
+```
+
+`report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with merge readiness, artifact coverage, check counts, loop-state coverage, and memory-candidate counts.
+
+Managed requests are still the underlying mechanism. Create a request file with:
 
 ```bash
 python .codex/skills/ai-engineering-discipline/scripts/run_request.py . \
@@ -63,7 +88,7 @@ Then execute safe setup artifacts:
 python <skill_dir>/scripts/execute_request.py .
 ```
 
-This creates generated spec, loop, verify, memory-plan, and execution-report files. It does not edit business code or run destructive tools.
+This creates generated spec, loop, loop-run, verify, memory-plan, memory-candidate, and execution-report files. It does not edit business code or run destructive tools.
 
 Use explicit verification flags only when requested or when the user has approved local checks:
 
@@ -72,7 +97,7 @@ python <skill_dir>/scripts/execute_request.py . --run-semgrep
 python <skill_dir>/scripts/execute_request.py . --run-native-checks
 ```
 
-Write results to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`.
+Write results to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. The structured JSON includes `can_merge`, required checks, skipped required checks, and blocking reasons.
 
 Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written and the overall verification status is `blocked`.
 

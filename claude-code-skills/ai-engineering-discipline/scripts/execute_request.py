@@ -494,6 +494,88 @@ def command_to_text(command: list[str]) -> str:
     return " ".join(command) if command else "none"
 
 
+def required_verify_checks(request: ManagedRequest) -> list[str]:
+    verify = request.verify_params
+    checks: list[str] = []
+    if verify.get("native_tests"):
+        checks.append("native_checks")
+    if verify.get("require_build"):
+        checks.append("build")
+    if verify.get("require_security_scan"):
+        checks.append("semgrep")
+    if verify.get("require_regression_tests"):
+        checks.append("regression_tests")
+    if verify.get("require_failing_test_or_trace"):
+        checks.append("failing_test_or_trace")
+    if verify.get("require_manual_validation"):
+        checks.append("manual_validation")
+    if verify.get("require_link_check") or verify.get("require_source_consistency"):
+        checks.append("source_consistency")
+    return checks
+
+
+def verification_gate_details(
+    request: ManagedRequest,
+    semgrep: CommandResult | None,
+    native: list[CommandResult],
+) -> dict[str, object]:
+    required = required_verify_checks(request)
+    executed: list[dict[str, object]] = []
+    skipped_required: list[str] = []
+    blocking_reasons: list[str] = []
+
+    if semgrep:
+        executed.append({"name": "semgrep", "required": "semgrep" in required, "status": semgrep.status})
+        if semgrep.status in {"failed", "timeout"}:
+            blocking_reasons.append(f"semgrep {semgrep.status}")
+        if semgrep.status == "skipped" and "semgrep" in required:
+            skipped_required.append("semgrep")
+        summary = parse_semgrep_summary(semgrep.stdout)
+        if summary.get("parse_error"):
+            blocking_reasons.append("semgrep output parse error")
+        if summary.get("findings", 0):
+            blocking_reasons.append(f"semgrep findings: {summary.get('findings')}")
+        if summary.get("errors", 0):
+            blocking_reasons.append(f"semgrep scan errors: {summary.get('errors')}")
+    elif "semgrep" in required:
+        skipped_required.append("semgrep")
+
+    native_ran = False
+    build_ran = False
+    for item in native:
+        is_build = "build" in item.name.lower()
+        native_ran = native_ran or item.name != "native:detect"
+        build_ran = build_ran or is_build
+        executed.append({
+            "name": item.name,
+            "required": bool(("native_checks" in required and item.name != "native:detect") or ("build" in required and is_build)),
+            "status": item.status,
+        })
+        if item.status in {"failed", "timeout"}:
+            blocking_reasons.append(f"{item.name} {item.status}")
+
+    if "native_checks" in required and (not native or not native_ran or all(item.status == "skipped" for item in native)):
+        skipped_required.append("native_checks")
+    if "build" in required and (not build_ran or any("build" in item.name.lower() and item.status == "skipped" for item in native)):
+        skipped_required.append("build")
+
+    for manual_check in ["regression_tests", "failing_test_or_trace", "manual_validation", "source_consistency"]:
+        if manual_check in required:
+            skipped_required.append(manual_check)
+
+    skipped_required = sorted(set(skipped_required))
+    blocking_reasons = sorted(set(blocking_reasons))
+    overall_status, _ = verification_rollup(semgrep, native)
+    can_merge = overall_status == "verified" and not skipped_required and not blocking_reasons
+    return {
+        "required_checks": required,
+        "executed_checks": executed,
+        "skipped_required_checks": skipped_required,
+        "blocking_reasons": blocking_reasons,
+        "can_merge": can_merge,
+    }
+
+
 def command_available(command: list[str], target: Path) -> bool:
     if not command:
         return False
@@ -652,6 +734,7 @@ def write_verification_results(
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     semgrep_summary = parse_semgrep_summary(semgrep.stdout) if semgrep else None
     overall_status, overall_reason = verification_rollup(semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native)
     payload: dict[str, object] = {
         "created": now,
         "request": {
@@ -662,6 +745,7 @@ def write_verification_results(
         },
         "overall_status": overall_status,
         "overall_reason": overall_reason,
+        **gate_details,
         "semgrep": result_to_dict(semgrep) if semgrep else None,
         "semgrep_summary": semgrep_summary,
         "native_checks": [result_to_dict(item) for item in native],
@@ -677,6 +761,9 @@ def write_verification_results(
         "",
         f"- Overall status: `{overall_status}`",
         f"- Reason: {overall_reason}",
+        f"- Can merge: `{str(gate_details['can_merge']).lower()}`",
+        f"- Skipped required checks: `{', '.join(gate_details['skipped_required_checks']) if gate_details['skipped_required_checks'] else 'none'}`",
+        f"- Blocking reasons: `{', '.join(gate_details['blocking_reasons']) if gate_details['blocking_reasons'] else 'none'}`",
         "",
         "| Check | Status | Exit | Duration |",
         "|---|---|---|---|",
@@ -820,6 +907,146 @@ Structured results:
     safe_write(matrix_path, content, force=True, actions=actions)
 
 
+def write_loop_run_log(
+    target: Path,
+    request: ManagedRequest,
+    semgrep: CommandResult | None,
+    native: list[CommandResult],
+    actions: list[str],
+) -> None:
+    loop_dir = target / "docs" / "loops"
+    path = loop_dir / "current-loop-run.md"
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    status, reason = verification_rollup(semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native)
+    verify_state = "pending"
+    if semgrep or native:
+        verify_state = "blocked" if status == "blocked" else "done" if status == "verified" else "pending"
+    next_action = "Review generated spec and loop before implementation."
+    if status == "blocked":
+        next_action = "Fix blocking verification issues, then rerun `/ai-verify`."
+    elif status == "verified" and gate_details["can_merge"]:
+        next_action = "Prepare PR evidence and review memory candidates."
+    elif status == "verified":
+        next_action = "Complete skipped required evidence before merge."
+
+    content = f"""# Current Loop Run: {request.name}
+
+Created: {now}
+
+## Request
+
+- Request: `{rel(request.path, target)}`
+- Loop: `{rel(request.loop_path, target)}`
+- Task: `{request.task}`
+- Risk: `{request.risk}`
+
+## State Progress
+
+| State | Status | Evidence |
+|---|---|---|
+| load_context | done | `docs/ai-engineering/current-request.md` |
+| plan | done | `{rel(request.spec_path, target)}`, `{rel(request.loop_path, target)}` |
+| implement | pending | Safe executor does not edit business code. |
+| verify | {verify_state} | `docs/verify/verification-results.json` when present |
+| memory | pending | `docs/memory/memory-candidates.md` |
+| done | pending | Requires accepted spec, verification evidence, and reviewed memory. |
+
+## Loop Controls
+
+- Max retries: `{request.loop_params.get("max_retries", "preset")}`
+- Current retry count: `0`
+- Human gate: `{request.loop_params.get("human_gate", "preset")}`
+- Checkpoint: `{request.loop_params.get("checkpoint", "preset")}`
+
+## Gate Summary
+
+- Verification status: `{status}`
+- Reason: {reason}
+- Can merge: `{str(gate_details["can_merge"]).lower()}`
+- Skipped required checks: `{", ".join(gate_details["skipped_required_checks"]) if gate_details["skipped_required_checks"] else "none"}`
+- Blocking reasons: `{", ".join(gate_details["blocking_reasons"]) if gate_details["blocking_reasons"] else "none"}`
+
+## Next Action
+
+{next_action}
+"""
+    safe_write(path, content, force=True, actions=actions)
+
+
+def write_memory_candidates(
+    target: Path,
+    request: ManagedRequest,
+    semgrep: CommandResult | None,
+    native: list[CommandResult],
+    actions: list[str],
+) -> None:
+    memory_dir = request.memory_path if request.memory_path.suffix == "" else request.memory_path.parent
+    path = memory_dir / "memory-candidates.md"
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    status, reason = verification_rollup(semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native)
+    candidate_sections = [
+        "## Candidate Project Rule",
+        "",
+        "- Status: `needs-review`",
+        "- Candidate: No durable project rule proposed automatically.",
+        "- Evidence required before accepting: link to spec, verification result, PR review, or incident.",
+        "",
+        "## Candidate Module Map Update",
+        "",
+        "- Status: `needs-review`",
+        "- Candidate: No module boundary update proposed automatically.",
+        "- Evidence required before accepting: changed module ownership or dependency boundary.",
+        "",
+    ]
+    if status == "blocked" or gate_details["blocking_reasons"] or gate_details["skipped_required_checks"]:
+        candidate_sections.extend([
+            "## Candidate Pitfall",
+            "",
+            "- Status: `needs-review`",
+            f"- Context: `{request.name}` verification did not produce merge-ready evidence.",
+            f"- Problem: {reason}",
+            f"- Blocking reasons: `{', '.join(gate_details['blocking_reasons']) if gate_details['blocking_reasons'] else 'none'}`",
+            f"- Skipped required checks: `{', '.join(gate_details['skipped_required_checks']) if gate_details['skipped_required_checks'] else 'none'}`",
+            "- Rule / Lesson: Do not mark AI-generated work complete until required verification evidence is present.",
+            "- Verification to add next time: rerun `/ai-verify` after fixing skipped or blocked gates.",
+            "",
+        ])
+    else:
+        candidate_sections.extend([
+            "## Candidate Pitfall",
+            "",
+            "- Status: `none`",
+            "- Candidate: No failure pattern observed in this run.",
+            "",
+        ])
+
+    content = f"""# Memory Candidates: {request.name}
+
+Created: {now}
+
+## Policy
+
+```json
+{json.dumps(request.memory_params, ensure_ascii=False, indent=2)}
+```
+
+These are candidate memory writes only. Review before copying anything into `project-rules.md`, `module-map.md`, or `pitfalls.md`.
+
+## Evidence
+
+- Request: `{rel(request.path, target)}`
+- Spec: `{rel(request.spec_path, target)}`
+- Loop run: `docs/loops/current-loop-run.md`
+- Verification results: `docs/verify/verification-results.json`
+- Verification status: `{status}`
+
+{chr(10).join(candidate_sections)}
+"""
+    safe_write(path, content, force=True, actions=actions)
+
+
 def has_verify_failure(semgrep: CommandResult | None, native: list[CommandResult]) -> bool:
     status, _ = verification_rollup(semgrep, native)
     return status == "blocked"
@@ -885,7 +1112,7 @@ def write_execution_report(target: Path, request: ManagedRequest, actions: list[
         "",
         "## Next Human/Agent Step",
         "",
-        "Review the generated spec, loop, verify plan, and any structured verification results. Implementation may start only after the spec and loop are accepted.",
+        "Review the generated spec, loop, loop run log, verify plan, memory candidates, and any structured verification results. Implementation may start only after the spec and loop are accepted.",
     ])
     safe_write(report, "\n".join(content), force=True if force else True, actions=[])
     return report
@@ -954,6 +1181,8 @@ def main() -> int:
             actions.append("verify native: skipped no recognized commands")
     write_verification_results(target, request, semgrep_result, native_results, actions)
     update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
+    write_loop_run_log(target, request, semgrep_result, native_results, actions)
+    write_memory_candidates(target, request, semgrep_result, native_results, actions)
 
     report = write_execution_report(target, request, actions, args.force)
     print(f"executed safe request setup: {request.name}")

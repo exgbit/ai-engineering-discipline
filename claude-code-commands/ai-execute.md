@@ -30,8 +30,10 @@ Read:
 - `docs/ai-engineering/execution-report.md`
 - `docs/specs/`
 - `docs/loops/`
+- `docs/loops/current-loop-run.md`
 - `docs/verify/current-request-verify.md`
 - `docs/memory/current-request-memory.md`
+- `docs/memory/memory-candidates.md`
 
 If verification flags were used, also read `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Report what was generated, what verification ran, and what remains blocked.
 

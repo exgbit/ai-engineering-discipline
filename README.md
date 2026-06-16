@@ -56,6 +56,9 @@ examples/
   test-matrix.example.md    # 需求到测试映射示例
   loop-runbook.example.md   # Loop runbook 示例
 scripts/
+  ai_discipline.py          # Unified CLI: start/request/execute/verify/report/doctor
+  ai-discipline.sh          # macOS / Linux unified CLI wrapper
+  ai-discipline.bat         # Windows unified CLI wrapper
   bootstrap.sh              # macOS / Linux 项目安装脚本
   bootstrap.bat             # Windows 项目安装脚本
   install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
@@ -179,7 +182,43 @@ The Claude Code workflow will:
 
 ## Integrated Workflow
 
-Users should normally create a managed request instead of writing long prompts:
+Users should normally use the unified CLI instead of calling the step scripts directly:
+
+```bash
+./scripts/ai-discipline.sh start --project /path/to/target-project
+./scripts/ai-discipline.sh run --project /path/to/target-project --task feature --name "refund approval" --requirements docs/requirements/refund.md --risk medium --verify
+```
+
+The `run` command creates the managed request, generates Spec / Loop / Verify / Memory artifacts, optionally runs verification with `--verify`, and writes the pilot report.
+
+For debugging or CI, use the same workflow as separate steps:
+
+```bash
+./scripts/ai-discipline.sh request --project /path/to/target-project --task feature --name "refund approval" --requirements docs/requirements/refund.md --risk medium
+./scripts/ai-discipline.sh execute --project /path/to/target-project
+./scripts/ai-discipline.sh verify --project /path/to/target-project --fail-on-verify-failure
+./scripts/ai-discipline.sh report --project /path/to/target-project
+```
+
+Windows:
+
+```bat
+scripts\ai-discipline.bat start --project C:\path\to\target-project
+scripts\ai-discipline.bat run --project C:\path\to\target-project --task feature --name "refund approval" --requirements docs\requirements\refund.md --risk medium --verify
+```
+
+Separate-step Windows usage:
+
+```bat
+scripts\ai-discipline.bat request --project C:\path\to\target-project --task feature --name "refund approval" --requirements docs\requirements\refund.md --risk medium
+scripts\ai-discipline.bat execute --project C:\path\to\target-project
+scripts\ai-discipline.bat verify --project C:\path\to\target-project --fail-on-verify-failure
+scripts\ai-discipline.bat report --project C:\path\to\target-project
+```
+
+`report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with artifact coverage, required/executed/skipped checks, merge readiness, memory-candidate count, loop-state coverage, and changed-file count when Git is available.
+
+The lower-level request script remains available for installed Claude/Codex skills:
 
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
@@ -223,7 +262,7 @@ Then execute the safe setup steps:
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py .
 ```
 
-This creates or updates generated spec, loop, verify, memory-plan, and execution-report artifacts. It does not edit business code, install packages, run destructive commands, or claim implementation success.
+This creates or updates generated spec, loop, verify, memory-plan, loop-run, memory-candidate, and execution-report artifacts. It does not edit business code, install packages, run destructive commands, or claim implementation success.
 
 To run explicit verification and write structured results:
 
@@ -232,11 +271,11 @@ python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --r
 python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --run-native-checks
 ```
 
-Results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Semgrep raw JSON is saved as `docs/verify/semgrep-results.json` when Semgrep runs successfully. Native checks are limited to detected local test, lint, typecheck, and required build commands.
+Results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Semgrep raw JSON is saved as `docs/verify/semgrep-results.json` when Semgrep runs successfully. Native checks are limited to detected local test, lint, typecheck, and required build commands. The structured JSON includes `can_merge`, `required_checks`, `skipped_required_checks`, and `blocking_reasons`.
 
 For CI-style usage, add `--fail-on-verify-failure`; the command exits non-zero after results are written when the overall verification status is `blocked`.
 
-For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`.
+For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`. For public wording, integration depth, and compatibility policy, see `framework/integration-levels.md`.
 
 ## Default Open-Source Adapter Stack
 
@@ -262,6 +301,8 @@ python scripts/install_default_adapters.py /path/to/target-project --execute
 ```
 
 This writes `docs/adapters/default-stack.md` in the target project with detected status and install commands.
+
+This project is independent. It uses GitHub Spec Kit, LangGraph, Semgrep, and Mem0 as default adapter targets; it is not affiliated with or endorsed by those projects.
 
 ## How To Use
 
