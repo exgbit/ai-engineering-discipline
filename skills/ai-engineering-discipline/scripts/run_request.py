@@ -101,12 +101,23 @@ def resolve_requirement_source(source: Path, target: Path) -> Path:
 
 
 def unique_copy_destination(destination: Path, used: set[Path]) -> Path:
-    if destination not in used:
+    if destination not in used and not destination.exists():
         return destination
     suffix = 2
     while True:
         candidate = destination.with_name(f"{destination.stem}-{suffix}{destination.suffix}")
-        if candidate not in used:
+        if candidate not in used and not candidate.exists():
+            return candidate
+        suffix += 1
+
+
+def unique_copy_root(destination: Path, used: set[Path]) -> Path:
+    if destination not in used and not destination.exists():
+        return destination
+    suffix = 2
+    while True:
+        candidate = destination.with_name(f"{destination.name}-{suffix}")
+        if candidate not in used and not candidate.exists():
             return candidate
         suffix += 1
 
@@ -115,10 +126,15 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
     dest_dir = target / "docs" / "requirements"
     dest_dir.mkdir(parents=True, exist_ok=True)
     copied: list[Path] = []
-    used_destinations: set[Path] = set()
+    seen_sources: set[Path] = set()
+    reserved_destinations: set[Path] = set()
     for source in requirements:
         raw_source = source
         source = resolve_requirement_source(source, target)
+        resolved_source = source.resolve()
+        if resolved_source in seen_sources:
+            continue
+        seen_sources.add(resolved_source)
         if not source.exists():
             if raw_source.expanduser().is_absolute():
                 raise SystemExit(f"Requirement path does not exist: {source}")
@@ -135,19 +151,21 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
                 copied.append(source)
             continue
         if source.is_dir():
+            dst_root = unique_copy_root((dest_dir / source.name).resolve(), reserved_destinations)
+            reserved_destinations.add(dst_root)
             for item in sorted(source.rglob("*")):
                 if item.is_file() and item.suffix.lower() in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}:
                     rel = item.relative_to(source)
-                    dst = dest_dir / source.name / rel
+                    dst = dst_root / rel
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(item, dst)
-                    used_destinations.add(dst.resolve())
+                    reserved_destinations.add(dst.resolve())
                     copied.append(dst)
         else:
-            dst = unique_copy_destination((dest_dir / source.name).resolve(), used_destinations)
+            dst = unique_copy_destination((dest_dir / source.name).resolve(), reserved_destinations)
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, dst)
-            used_destinations.add(dst)
+            reserved_destinations.add(dst)
             copied.append(dst)
     return copied
 

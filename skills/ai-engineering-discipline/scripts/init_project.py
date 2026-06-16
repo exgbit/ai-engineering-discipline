@@ -817,6 +817,8 @@ def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
                 print(f"skip skill: {dst}")
                 continue
             dst.parent.mkdir(parents=True, exist_ok=True)
+            if dst.exists() and force:
+                shutil.rmtree(dst)
             shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)
             counts["write"] += 1
             print(f"write skill: {dst}")

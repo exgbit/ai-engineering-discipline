@@ -645,6 +645,14 @@ def run_command(name: str, command: list[str], target: Path, timeout: int) -> Co
         )
 
 
+def node_script_command(target: Path, script_name: str) -> list[str]:
+    if (target / "pnpm-lock.yaml").exists():
+        return ["pnpm", script_name]
+    if (target / "yarn.lock").exists():
+        return ["yarn", script_name]
+    return ["npm", "run", script_name]
+
+
 def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[str, list[str]]]:
     commands: list[tuple[str, list[str]]] = []
     package_json = target / "package.json"
@@ -655,11 +663,11 @@ def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[
             if isinstance(scripts, dict):
                 for name in ["lint", "typecheck", "test"]:
                     if name in scripts:
-                        commands.append((f"npm:{name}", ["npm", "run", name]))
+                        commands.append((f"node:{name}", node_script_command(target, name)))
                 if request.verify_params.get("require_build") and "build" in scripts:
-                    commands.append(("npm:build", ["npm", "run", "build"]))
+                    commands.append(("node:build", node_script_command(target, "build")))
         except json.JSONDecodeError:
-            commands.append(("npm:test", ["npm", "test"]))
+            commands.append(("node:test", node_script_command(target, "test")))
 
     if (target / "go.mod").exists():
         commands.append(("go:test", ["go", "test", "./..."]))

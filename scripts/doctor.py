@@ -89,6 +89,7 @@ def collect_checks(target: Path) -> list[Check]:
         skill_check(target, ".claude/skills/ai-memory"),
         skill_check(target, ".codex/skills/ai-engineering-discipline", required=False),
         skill_script_check(target, "init_project.py"),
+        skill_script_check(target, "ai_discipline.py"),
         skill_script_check(target, "inspect_project.py"),
         skill_script_check(target, "run_request.py"),
         skill_script_check(target, "execute_request.py"),

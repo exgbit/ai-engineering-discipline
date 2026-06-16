@@ -113,6 +113,7 @@ if exist "%DST%\" if not "%FORCE%"=="1" (
   echo skip existing: %DST%
   exit /b 0
 )
+if exist "%DST%\" if "%FORCE%"=="1" rd /s /q "%DST%"
 if not exist "%DST%\" mkdir "%DST%"
 xcopy "%SRC%\*" "%DST%\" /E /I /Y >nul
 for /d /r "%DST%" %%D in (__pycache__) do if exist "%%D" rd /s /q "%%D"

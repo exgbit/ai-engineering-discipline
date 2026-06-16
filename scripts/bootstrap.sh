@@ -108,6 +108,9 @@ install_skill_dir() {
   if [[ -d "$dst" && "$FORCE" != "1" ]]; then
     echo "skip existing: $dst"
   else
+    if [[ -d "$dst" && "$FORCE" == "1" ]]; then
+      rm -rf "$dst"
+    fi
     mkdir -p "$dst"
     tar -C "$src" --exclude='__pycache__' --exclude='*.pyc' --exclude='.DS_Store' -cf - . | tar -C "$dst" -xf -
     find "$dst" -type d -name __pycache__ -prune -exec rm -rf {} +

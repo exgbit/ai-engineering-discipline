@@ -39,17 +39,20 @@ def exists_any(root: Path, names: list[str]) -> list[str]:
     return [name for name in names if (root / name).exists()]
 
 
+def node_runner(root: Path) -> str:
+    if (root / "pnpm-lock.yaml").exists():
+        return "pnpm"
+    if (root / "yarn.lock").exists():
+        return "yarn"
+    return "npm run"
+
+
 def detect_commands(root: Path) -> list[str]:
     commands: list[str] = []
 
     package_json = root / "package.json"
     if package_json.exists():
-        if (root / "pnpm-lock.yaml").exists():
-            runner = "pnpm"
-        elif (root / "yarn.lock").exists():
-            runner = "yarn"
-        else:
-            runner = "npm run"
+        runner = node_runner(root)
         try:
             data = json.loads(package_json.read_text(encoding="utf-8"))
             scripts = data.get("scripts", {})
@@ -72,7 +75,12 @@ def detect_commands(root: Path) -> list[str]:
         commands.append("mvn test")
 
     if (root / "build.gradle").exists() or (root / "build.gradle.kts").exists():
-        commands.append("./gradlew test")
+        if (root / "gradlew.bat").exists():
+            commands.append("./gradlew.bat test")
+        elif (root / "gradlew").exists():
+            commands.append("./gradlew test")
+        else:
+            commands.append("gradle test")
 
     return commands
 
