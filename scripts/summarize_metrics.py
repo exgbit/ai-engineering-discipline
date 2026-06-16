@@ -21,12 +21,16 @@ RATE_FIELDS = {
 
 def parse_float(value: str) -> float:
     value = value.strip()
+    if not value or value.lower() in {"n/a", "na", "null", "none", "-"}:
+        return 0.0
     if value.endswith("%"):
         return float(value[:-1]) / 100
     return float(value)
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        raise SystemExit(f"Metrics CSV not found: {path}")
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 

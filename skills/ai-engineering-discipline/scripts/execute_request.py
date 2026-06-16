@@ -231,6 +231,10 @@ def rel(path: Path, target: Path) -> str:
         return str(path)
 
 
+def md_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ").strip()
+
+
 def write_requirements_index(target: Path, request: ManagedRequest, force: bool, actions: list[str]) -> Path:
     index = target / "docs" / "specs" / "requirements-index.md"
     lines = [
@@ -245,7 +249,9 @@ def write_requirements_index(target: Path, request: ManagedRequest, force: bool,
     if request.requirements:
         for source in request.requirements:
             status = "found" if source.exists() else "missing"
-            lines.append(f"| `{rel(source, target)}` | {requirement_title(source)} | {status} |")
+            lines.append(
+                f"| {md_cell(f'`{rel(source, target)}`')} | {md_cell(requirement_title(source))} | {md_cell(status)} |"
+            )
     else:
         lines.append("| None | No external requirement source was provided. | open |")
     safe_write(index, "\n".join(lines), force, actions)
@@ -259,7 +265,10 @@ def write_spec(target: Path, request: ManagedRequest, force: bool, actions: list
         for idx, source in enumerate(request.requirements, start=1):
             req_id = f"R{idx}"
             title = requirement_title(source)
-            req_rows.append(f"| {req_id} | Import `{rel(source, target)}`: {title} | P0 | Source reviewed and mapped to tests |")
+            req_rows.append(
+                f"| {md_cell(req_id)} | {md_cell(f'Import `{rel(source, target)}`: {title}')} | "
+                f"{md_cell('P0')} | {md_cell('Source reviewed and mapped to tests')} |"
+            )
             excerpts.extend([
                 f"### {req_id}: `{rel(source, target)}`",
                 "",
@@ -409,7 +418,10 @@ def write_verify_artifacts(target: Path, request: ManagedRequest, force: bool, a
     rows = []
     for idx, source in enumerate(request.requirements or [Path("none")], start=1):
         requirement = requirement_title(source) if source != Path("none") else request.name
-        rows.append(f"| R{idx} | {requirement} | TBD | TBD | TBD | todo |")
+        rows.append(
+            f"| {md_cell(f'R{idx}')} | {md_cell(requirement)} | {md_cell('TBD')} | "
+            f"{md_cell('TBD')} | {md_cell('TBD')} | {md_cell('todo')} |"
+        )
 
     matrix = f"""# Test Matrix
 
@@ -794,9 +806,17 @@ def write_verification_results(
         "|---|---|---|---|",
     ]
     if semgrep:
-        lines.append(f"| semgrep | {semgrep.status} | {semgrep.exit_code if semgrep.exit_code is not None else ''} | {semgrep.duration_seconds}s |")
+        lines.append(
+            f"| {md_cell('semgrep')} | {md_cell(semgrep.status)} | "
+            f"{md_cell(semgrep.exit_code if semgrep.exit_code is not None else '')} | "
+            f"{md_cell(f'{semgrep.duration_seconds}s')} |"
+        )
     for item in native:
-        lines.append(f"| {item.name} | {item.status} | {item.exit_code if item.exit_code is not None else ''} | {item.duration_seconds}s |")
+        lines.append(
+            f"| {md_cell(item.name)} | {md_cell(item.status)} | "
+            f"{md_cell(item.exit_code if item.exit_code is not None else '')} | "
+            f"{md_cell(f'{item.duration_seconds}s')} |"
+        )
     if semgrep_summary:
         lines.extend([
             "",
@@ -893,16 +913,21 @@ def update_test_matrix_with_results(
     rows = []
     for idx, source in enumerate(request.requirements or [Path("none")], start=1):
         requirement = requirement_title(source) if source != Path("none") else request.name
-        rows.append(f"| R{idx} | {requirement} | TBD | TBD | See verification evidence below | {status} |")
+        rows.append(
+            f"| {md_cell(f'R{idx}')} | {md_cell(requirement)} | {md_cell('TBD')} | "
+            f"{md_cell('TBD')} | {md_cell('See verification evidence below')} | {md_cell(status)} |"
+        )
 
     evidence_rows = []
     if semgrep:
         evidence_rows.append(
-            f"| semgrep | `{command_to_text(semgrep.command)}` | {semgrep.status} | {semgrep.exit_code if semgrep.exit_code is not None else ''} |"
+            f"| {md_cell('semgrep')} | {md_cell(f'`{command_to_text(semgrep.command)}`')} | "
+            f"{md_cell(semgrep.status)} | {md_cell(semgrep.exit_code if semgrep.exit_code is not None else '')} |"
         )
     for item in native:
         evidence_rows.append(
-            f"| {item.name} | `{command_to_text(item.command)}` | {item.status} | {item.exit_code if item.exit_code is not None else ''} |"
+            f"| {md_cell(item.name)} | {md_cell(f'`{command_to_text(item.command)}`')} | "
+            f"{md_cell(item.status)} | {md_cell(item.exit_code if item.exit_code is not None else '')} |"
         )
 
     content = f"""# Test Matrix

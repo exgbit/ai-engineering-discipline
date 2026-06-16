@@ -130,6 +130,25 @@ def md_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ").strip()
 
 
+def discover_report_dirs(path: Path) -> list[Path]:
+    report_dirs: set[Path] = set()
+    if path.is_dir():
+        if path.name == "reports":
+            report_dirs.add(path.resolve())
+        direct = path / "docs" / "reports"
+        if direct.is_dir():
+            report_dirs.add(direct.resolve())
+        for candidate in path.glob("**/docs/reports"):
+            if candidate.is_dir():
+                report_dirs.add(candidate.resolve())
+    discovered = sorted(report_dirs)
+    if len(discovered) > 1:
+        filtered = [item for item in discovered if item.parent.parent.resolve() != path.resolve()]
+        if filtered:
+            return filtered
+    return discovered
+
+
 def load_config(target: Path) -> dict[str, object]:
     config = read_json(target / CONFIG_NAME)
     return config if config else deepcopy(DEFAULT_CONFIG)
@@ -396,12 +415,19 @@ def find_pilot_reports(inputs: list[str], default_target: Path) -> list[Path]:
         if path.is_file():
             candidates = [path]
         elif path.is_dir():
-            run_reports = sorted(path.glob("**/docs/reports/runs/pilot-report-*.json"))
-            latest_reports = sorted(path.glob("**/docs/reports/pilot-report.json"))
-            if run_reports:
-                candidates.extend(run_reports)
-            else:
-                candidates.extend(latest_reports)
+            report_dirs = discover_report_dirs(path)
+            if len(report_dirs) > 1:
+                filtered = [item for item in report_dirs if item.parent.parent.resolve() != default_target.resolve()]
+                if filtered:
+                    report_dirs = filtered
+            for report_dir in report_dirs:
+                run_reports = sorted((report_dir / "runs").glob("pilot-report-*.json"))
+                if run_reports:
+                    candidates.extend(run_reports)
+                    continue
+                latest_report = report_dir / "pilot-report.json"
+                if latest_report.is_file():
+                    candidates.append(latest_report)
         for candidate in candidates:
             resolved = candidate.resolve()
             valid_report = resolved.name == "pilot-report.json" or (
