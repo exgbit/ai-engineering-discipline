@@ -717,9 +717,24 @@ jobs:
       - name: Install Semgrep
         run: python -m pip install semgrep
 
+      - name: Detect managed request
+        id: request
+        shell: bash
+        run: |
+          if [[ -f docs/ai-engineering/current-request.md ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Verify current AI request
+        if: steps.request.outputs.present == 'true'
         run: |
           python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py verify . --fail-on-verify-failure
+
+      - name: Skip verify when no managed request exists
+        if: steps.request.outputs.present != 'true'
+        run: echo "No docs/ai-engineering/current-request.md found. Skipping managed-request verification."
 
       - name: Write pilot report
         if: always()

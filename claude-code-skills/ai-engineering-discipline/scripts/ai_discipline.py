@@ -130,6 +130,16 @@ def md_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ").strip()
 
 
+def merge_dicts(base: dict[str, object], override: dict[str, object]) -> dict[str, object]:
+    merged = deepcopy(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_dicts(merged[key], value)  # type: ignore[arg-type]
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
 def discover_report_dirs(path: Path) -> list[Path]:
     report_dirs: set[Path] = set()
     if path.is_dir():
@@ -150,8 +160,16 @@ def discover_report_dirs(path: Path) -> list[Path]:
 
 
 def load_config(target: Path) -> dict[str, object]:
-    config = read_json(target / CONFIG_NAME)
-    return config if config else deepcopy(DEFAULT_CONFIG)
+    path = target / CONFIG_NAME
+    if not path.exists():
+        return deepcopy(DEFAULT_CONFIG)
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid {CONFIG_NAME}: {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise SystemExit(f"Invalid {CONFIG_NAME}: {path}: root value must be a JSON object.")
+    return merge_dicts(DEFAULT_CONFIG, raw)
 
 
 def config_defaults(target: Path) -> dict[str, object]:
@@ -194,6 +212,10 @@ def resolved_report_archive(args: argparse.Namespace, target: Path) -> bool:
     if value is None:
         return parse_bool(report_value(target, "archive_runs", True), True)
     return parse_bool(value, True)
+
+
+def should_write_pilot_report(target: Path) -> bool:
+    return parse_bool(report_value(target, "write_pilot_report", True), True)
 
 
 def read_text(path: Path) -> str:
@@ -667,8 +689,11 @@ def command_run(args: argparse.Namespace) -> int:
     execute_args.request = None
     execute_args.skip_init = True
     execute_code = run_python(script_path("execute_request.py"), build_execute_args(execute_args, target))
-    report = write_pilot_report(target, archive_runs=resolved_report_archive(args, target))
-    print(f"wrote: {report}")
+    if should_write_pilot_report(target):
+        report = write_pilot_report(target, archive_runs=resolved_report_archive(args, target))
+        print(f"wrote: {report}")
+    else:
+        print(f"skip report: {target / 'docs' / 'reports' / 'pilot-report.md'} (reports.write_pilot_report=false)")
     return execute_code
 
 
