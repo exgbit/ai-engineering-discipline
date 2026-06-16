@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import json
 import re
@@ -285,6 +286,178 @@ def write_pilot_report(target: Path) -> Path:
     return md_path
 
 
+def find_pilot_reports(inputs: list[str], default_target: Path) -> list[Path]:
+    raw_inputs = inputs or [str(default_target)]
+    reports: list[Path] = []
+    seen: set[Path] = set()
+    for raw in raw_inputs:
+        path = Path(raw).expanduser().resolve()
+        candidates: list[Path] = []
+        if path.is_file():
+            candidates = [path]
+        elif path.is_dir():
+            direct = path / "docs" / "reports" / "pilot-report.json"
+            if direct.exists():
+                candidates.append(direct)
+            candidates.extend(path.glob("**/pilot-report.json"))
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if resolved not in seen and resolved.name == "pilot-report.json":
+                seen.add(resolved)
+                reports.append(resolved)
+    return sorted(reports)
+
+
+def row_from_report(path: Path) -> dict[str, object]:
+    data = read_json(path)
+    request = data.get("request", {})
+    metrics = data.get("metrics", {})
+    verification = data.get("verification", {})
+    artifacts = data.get("artifacts", {})
+    if not isinstance(request, dict):
+        request = {}
+    if not isinstance(metrics, dict):
+        metrics = {}
+    if not isinstance(verification, dict):
+        verification = {}
+    if not isinstance(artifacts, dict):
+        artifacts = {}
+    return {
+        "report": str(path),
+        "created": data.get("created", ""),
+        "target": data.get("target", ""),
+        "task": request.get("task", ""),
+        "name": request.get("name", ""),
+        "risk": request.get("risk", ""),
+        "verification_status": verification.get("overall_status", "missing"),
+        "can_merge": bool(verification.get("can_merge", False)),
+        "required_check_count": int(metrics.get("required_check_count") or 0),
+        "executed_check_count": int(metrics.get("executed_check_count") or 0),
+        "skipped_required_check_count": int(metrics.get("skipped_required_check_count") or 0),
+        "blocking_reason_count": int(metrics.get("blocking_reason_count") or 0),
+        "loop_states_recorded": int(metrics.get("loop_states_recorded") or 0),
+        "memory_candidate_sections": int(metrics.get("memory_candidate_sections") or 0),
+        "artifact_coverage": sum(1 for value in artifacts.values() if value) / len(artifacts) if artifacts else 0.0,
+    }
+
+
+def pct(count: int, total: int) -> str:
+    if total == 0:
+        return "0.0%"
+    return f"{(count / total) * 100:.1f}%"
+
+
+def avg(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def write_metrics_summary(paths: list[Path], output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    rows = [row_from_report(path) for path in paths]
+    total = len(rows)
+    status_counts: dict[str, int] = {}
+    for row in rows:
+        status = str(row["verification_status"])
+        status_counts[status] = status_counts.get(status, 0) + 1
+    can_merge_count = sum(1 for row in rows if row["can_merge"])
+
+    summary = {
+        "generated_by": "ai-engineering-discipline",
+        "created": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "report_count": total,
+        "can_merge_count": can_merge_count,
+        "can_merge_rate": can_merge_count / total if total else 0.0,
+        "status_counts": status_counts,
+        "averages": {
+            "required_check_count": avg([float(row["required_check_count"]) for row in rows]),
+            "executed_check_count": avg([float(row["executed_check_count"]) for row in rows]),
+            "skipped_required_check_count": avg([float(row["skipped_required_check_count"]) for row in rows]),
+            "blocking_reason_count": avg([float(row["blocking_reason_count"]) for row in rows]),
+            "loop_states_recorded": avg([float(row["loop_states_recorded"]) for row in rows]),
+            "artifact_coverage": avg([float(row["artifact_coverage"]) for row in rows]),
+        },
+        "reports": rows,
+    }
+
+    json_path = output_dir / "pilot-summary.json"
+    csv_path = output_dir / "pilot-summary.csv"
+    md_path = output_dir / "pilot-summary.md"
+    json_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    fieldnames = [
+        "report",
+        "created",
+        "target",
+        "task",
+        "name",
+        "risk",
+        "verification_status",
+        "can_merge",
+        "required_check_count",
+        "executed_check_count",
+        "skipped_required_check_count",
+        "blocking_reason_count",
+        "loop_states_recorded",
+        "memory_candidate_sections",
+        "artifact_coverage",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+    lines = [
+        "# Pilot Metrics Summary",
+        "",
+        f"Created: {summary['created']}",
+        "",
+        "## Summary",
+        "",
+        f"- Reports: `{total}`",
+        f"- Can merge: `{can_merge_count}` ({pct(can_merge_count, total)})",
+        "",
+        "| Status | Count | Rate |",
+        "|---|---:|---:|",
+    ]
+    for status, count in sorted(status_counts.items()):
+        lines.append(f"| {status} | {count} | {pct(count, total)} |")
+    lines.extend([
+        "",
+        "## Averages",
+        "",
+        "| Metric | Average |",
+        "|---|---:|",
+    ])
+    for key, value in summary["averages"].items():
+        display = f"{value * 100:.1f}%" if key == "artifact_coverage" else f"{value:.2f}"
+        lines.append(f"| {key} | {display} |")
+    lines.extend([
+        "",
+        "## Reports",
+        "",
+        "| Request | Task | Risk | Status | Can Merge | Executed Checks | Skipped Required | Blocking Reasons |",
+        "|---|---|---|---|---|---:|---:|---:|",
+    ])
+    for row in rows:
+        lines.append(
+            f"| {row['name'] or 'unknown'} | {row['task'] or 'unknown'} | {row['risk'] or 'unknown'} | "
+            f"{row['verification_status']} | `{str(row['can_merge']).lower()}` | "
+            f"{row['executed_check_count']} | {row['skipped_required_check_count']} | {row['blocking_reason_count']} |"
+        )
+    lines.extend([
+        "",
+        "## Files",
+        "",
+        f"- JSON: `{json_path.name}`",
+        f"- CSV: `{csv_path.name}`",
+        "",
+        "Use this as pilot evidence for workflow behavior. It does not measure product quality by itself.",
+    ])
+    md_path.write_text(GENERATED + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    return md_path
+
+
 def command_start(args: argparse.Namespace) -> int:
     target = target_from_args(args)
     init_args = [str(target)]
@@ -399,6 +572,20 @@ def command_config(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_metrics(args: argparse.Namespace) -> int:
+    target = target_from_args(args)
+    reports = find_pilot_reports(args.inputs, target)
+    if not reports:
+        raise SystemExit("No pilot-report.json files found.")
+    output_dir = Path(args.output_dir).expanduser()
+    if not output_dir.is_absolute():
+        output_dir = target / output_dir
+    path = write_metrics_summary(reports, output_dir.resolve())
+    print(f"wrote: {path}")
+    print(f"reports: {len(reports)}")
+    return 0
+
+
 def add_common_project(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("target", nargs="?", help="Target project path. Defaults to current directory.")
     parser.add_argument("--project", default=".", help="Target project path. Defaults to current directory.")
@@ -487,6 +674,12 @@ def build_parser() -> argparse.ArgumentParser:
     config.add_argument("--init", action="store_true", help="Write default .ai-discipline.json.")
     config.add_argument("--force", action="store_true", help="Overwrite existing config when used with --init.")
     config.set_defaults(func=command_config)
+
+    metrics = subparsers.add_parser("metrics", help="Aggregate pilot-report.json files into summary Markdown/JSON/CSV.")
+    add_common_project(metrics)
+    metrics.add_argument("--input", dest="inputs", action="append", default=[], help="Project directory or pilot-report.json. Can be passed multiple times.")
+    metrics.add_argument("--output-dir", default="docs/reports", help="Directory for pilot-summary.md/.json/.csv. Relative paths resolve inside the target project.")
+    metrics.set_defaults(func=command_metrics)
 
     return parser
 

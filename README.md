@@ -58,7 +58,7 @@ examples/
   test-matrix.example.md    # 需求到测试映射示例
   loop-runbook.example.md   # Loop runbook 示例
 scripts/
-  ai_discipline.py          # Unified CLI: start/request/execute/verify/report/doctor
+  ai_discipline.py          # Unified CLI: start/request/execute/verify/report/metrics/doctor
   ai-discipline.sh          # macOS / Linux unified CLI wrapper
   ai-discipline.bat         # Windows unified CLI wrapper
   bootstrap.sh              # macOS / Linux 项目安装脚本
@@ -221,6 +221,21 @@ scripts\ai-discipline.bat report --project C:\path\to\target-project
 ```
 
 `report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with artifact coverage, required/executed/skipped checks, merge readiness, memory-candidate count, loop-state coverage, and changed-file count when Git is available.
+
+Aggregate multiple pilot reports for team review or external writeups:
+
+```bash
+./scripts/ai-discipline.sh metrics --project /path/to/target-project
+./scripts/ai-discipline.sh metrics --project /path/to/summary-repo --input /path/to/project-a --input /path/to/project-b
+```
+
+This writes:
+
+```text
+docs/reports/pilot-summary.md
+docs/reports/pilot-summary.json
+docs/reports/pilot-summary.csv
+```
 
 Project defaults live in `.ai-discipline.json`. Initialize or inspect them with:
 

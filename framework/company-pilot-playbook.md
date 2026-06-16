@@ -54,6 +54,19 @@ Track these metrics weekly:
 - loop success rate;
 - loop wall-time and token budget.
 
+Use the framework report commands to produce evidence:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics .
+```
+
+For multiple pilot projects, aggregate from a summary repository or one selected project:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics . --input ../project-a --input ../project-b
+```
+
 ## Decision After Four Weeks
 
 Choose one:

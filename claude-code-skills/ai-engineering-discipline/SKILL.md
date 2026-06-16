@@ -72,6 +72,13 @@ python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report 
 
 `report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with merge readiness, artifact coverage, check counts, loop-state coverage, and memory-candidate counts.
 
+Use `metrics` to aggregate pilot reports across runs or projects:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics .
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics . --input ../project-a --input ../project-b
+```
+
 Read `.ai-discipline.json` for project defaults before assuming verification behavior. Show or initialize it with:
 
 ```bash

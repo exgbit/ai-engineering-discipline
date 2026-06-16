@@ -23,6 +23,14 @@ python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report 
 
 `report` writes `docs/reports/pilot-report.md` and `.json` for team review and pilot metrics.
 
+Aggregate reports after several runs:
+
+```bash
+python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics .
+```
+
+This writes `docs/reports/pilot-summary.md`, `.json`, and `.csv`.
+
 Defaults live in `.ai-discipline.json`. Show or initialize them with:
 
 ```bash
