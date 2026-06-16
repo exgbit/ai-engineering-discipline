@@ -8,7 +8,14 @@ import json
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass
+class InstallOutcome:
+    status: str
+    detail: str = ""
 
 
 def default_stack_path() -> Path:
@@ -85,7 +92,12 @@ def require_layers_dict(stack: dict[str, object]) -> dict[str, dict[str, object]
     return validated
 
 
-def write_report(target: Path, layers: dict[str, dict[str, object]], statuses: dict[str, str]) -> None:
+def write_report(
+    target: Path,
+    layers: dict[str, dict[str, object]],
+    statuses: dict[str, str],
+    install_notes: dict[str, InstallOutcome] | None = None,
+) -> None:
     adapters_dir = target / "docs" / "adapters"
     adapters_dir.mkdir(parents=True, exist_ok=True)
     report = adapters_dir / "default-stack.md"
@@ -117,17 +129,35 @@ def write_report(target: Path, layers: dict[str, dict[str, object]], statuses: d
         lines.append(" ".join(command) if command else "# no command configured")
         lines.append("```")
         lines.append("")
+    if install_notes:
+        lines.extend([
+            "## Install Results",
+            "",
+            "| Layer | Outcome | Detail |",
+            "|---|---|---|",
+        ])
+        for layer_name, outcome in install_notes.items():
+            detail = outcome.detail.replace("|", "\\|").replace("\n", " ").strip() or "n/a"
+            lines.append(f"| {layer_name} | {outcome.status} | {detail} |")
+        lines.append("")
     report.write_text("\n".join(lines), encoding="utf-8")
     print(f"wrote: {report}")
 
 
-def execute_install(layer_name: str, layer: dict[str, object]) -> None:
+def execute_install(layer_name: str, layer: dict[str, object]) -> InstallOutcome:
     command = executable_command_for(layer)
     if not command:
         print(f"skip {layer_name}: no install command")
-        return
+        return InstallOutcome("skipped", "no install command configured")
     print(f"install {layer_name}: {' '.join(command)}")
-    subprocess.run(command, check=True)
+    try:
+        subprocess.run(command, check=True)
+    except FileNotFoundError as exc:
+        executable = command[0] if command else "<empty>"
+        return InstallOutcome("failed", f"missing executable: {executable} ({exc})")
+    except subprocess.CalledProcessError as exc:
+        return InstallOutcome("failed", f"command exited with status {exc.returncode}")
+    return InstallOutcome("installed", "install command completed")
 
 
 def main() -> int:
@@ -154,6 +184,7 @@ def main() -> int:
         raise SystemExit(f"Unknown layers: {', '.join(unknown)}")
 
     statuses: dict[str, str] = {}
+    install_notes: dict[str, InstallOutcome] = {}
     for layer_name, layer in layers.items():
         if layer_name not in selected:
             statuses[layer_name] = "not selected"
@@ -165,13 +196,17 @@ def main() -> int:
             layer = layers[layer_name]
             if statuses[layer_name] == "installed":
                 print(f"skip {layer_name}: already installed")
+                install_notes[layer_name] = InstallOutcome("skipped", "already installed")
             else:
-                execute_install(layer_name, layer)
+                outcome = execute_install(layer_name, layer)
+                install_notes[layer_name] = outcome
                 statuses[layer_name] = status_for(layer)
+                if outcome.status == "failed" and statuses[layer_name] != "installed":
+                    print(f"failed {layer_name}: {outcome.detail}")
     else:
         print("Dry run only. Re-run with --execute to install missing adapters.")
 
-    write_report(target, layers, statuses)
+    write_report(target, layers, statuses, install_notes if args.execute else None)
 
     print()
     print("| Layer | Framework | Status |")
@@ -179,6 +214,8 @@ def main() -> int:
     for layer_name, layer in layers.items():
         print(f"| {layer_name} | {layer['framework']} | {statuses[layer_name]} |")
 
+    if any(note.status == "failed" for note in install_notes.values()):
+        return 1
     return 0
 
 
