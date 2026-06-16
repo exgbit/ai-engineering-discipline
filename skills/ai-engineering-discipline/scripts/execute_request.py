@@ -577,6 +577,7 @@ def verification_gate_details(
 
 
 def command_available(command: list[str], target: Path) -> bool:
+    command = resolve_local_command(command, target)
     if not command:
         return False
     executable = command[0]
@@ -585,7 +586,23 @@ def command_available(command: list[str], target: Path) -> bool:
     return shutil.which(executable) is not None
 
 
+def resolve_local_command(command: list[str], target: Path) -> list[str]:
+    if not command:
+        return command
+    executable = command[0]
+    if not executable.startswith("./"):
+        return command
+    local = target / executable[2:]
+    if sys.platform.startswith("win"):
+        if local.with_suffix(".bat").exists():
+            return [f"{executable}.bat", *command[1:]]
+        if local.with_suffix(".cmd").exists():
+            return [f"{executable}.cmd", *command[1:]]
+    return command
+
+
 def run_command(name: str, command: list[str], target: Path, timeout: int) -> CommandResult:
+    command = resolve_local_command(command, target)
     started = dt.datetime.now()
     if not command_available(command, target):
         return CommandResult(
@@ -657,7 +674,7 @@ def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[
         commands.append(("java:mvn-test", ["mvn", "test"]))
 
     if (target / "build.gradle").exists() or (target / "build.gradle.kts").exists():
-        if (target / "gradlew").exists():
+        if (target / "gradlew").exists() or (target / "gradlew.bat").exists():
             commands.append(("java:gradle-test", ["./gradlew", "test"]))
         else:
             commands.append(("java:gradle-test", ["gradle", "test"]))
@@ -1088,7 +1105,7 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . --task 
     return report
 
 
-def write_execution_report(target: Path, request: ManagedRequest, actions: list[str], force: bool) -> Path:
+def write_execution_report(target: Path, request: ManagedRequest, actions: list[str]) -> Path:
     report = target / "docs" / "ai-engineering" / "execution-report.md"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     content = [
@@ -1114,7 +1131,7 @@ def write_execution_report(target: Path, request: ManagedRequest, actions: list[
         "",
         "Review the generated spec, loop, loop run log, verify plan, memory candidates, and any structured verification results. Implementation may start only after the spec and loop are accepted.",
     ])
-    safe_write(report, "\n".join(content), force=True if force else True, actions=[])
+    safe_write(report, "\n".join(content), force=True, actions=[])
     return report
 
 
@@ -1184,7 +1201,7 @@ def main() -> int:
     write_loop_run_log(target, request, semgrep_result, native_results, actions)
     write_memory_candidates(target, request, semgrep_result, native_results, actions)
 
-    report = write_execution_report(target, request, actions, args.force)
+    report = write_execution_report(target, request, actions)
     print(f"executed safe request setup: {request.name}")
     print(f"report: {report}")
     for action in actions:

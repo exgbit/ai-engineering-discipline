@@ -73,7 +73,19 @@ def executable_command_for(layer: dict[str, object]) -> list[str]:
     return command
 
 
-def write_report(target: Path, stack: dict[str, object], statuses: dict[str, str]) -> None:
+def require_layers_dict(stack: dict[str, object]) -> dict[str, dict[str, object]]:
+    layers = stack.get("layers")
+    if not isinstance(layers, dict):
+        raise SystemExit("Invalid stack: missing layers object")
+    validated: dict[str, dict[str, object]] = {}
+    for layer_name, layer in layers.items():
+        if not isinstance(layer, dict):
+            raise SystemExit(f"Invalid stack: layer {layer_name!r} must be an object.")
+        validated[layer_name] = layer
+    return validated
+
+
+def write_report(target: Path, layers: dict[str, dict[str, object]], statuses: dict[str, str]) -> None:
     adapters_dir = target / "docs" / "adapters"
     adapters_dir.mkdir(parents=True, exist_ok=True)
     report = adapters_dir / "default-stack.md"
@@ -85,10 +97,7 @@ def write_report(target: Path, stack: dict[str, object], statuses: dict[str, str
         "| Layer | Framework | Status | Repository | Why |",
         "|---|---|---|---|---|",
     ]
-    layers = stack["layers"]
-    assert isinstance(layers, dict)
     for layer_name, layer in layers.items():
-        assert isinstance(layer, dict)
         lines.append(
             f"| {layer_name} | {layer['framework']} | {statuses[layer_name]} | "
             f"{layer['repo']} | {layer['why']} |"
@@ -101,7 +110,6 @@ def write_report(target: Path, stack: dict[str, object], statuses: dict[str, str
         ]
     )
     for layer_name, layer in layers.items():
-        assert isinstance(layer, dict)
         command = executable_command_for(layer)
         lines.append(f"### {layer_name}: {layer['framework']}")
         lines.append("")
@@ -138,9 +146,7 @@ def main() -> int:
         raise SystemExit(f"Target project does not exist: {target}")
 
     stack = json.loads(default_stack_path().read_text(encoding="utf-8"))
-    layers = stack["layers"]
-    if not isinstance(layers, dict):
-        raise SystemExit("Invalid stack: missing layers object")
+    layers = require_layers_dict(stack)
 
     selected = [name.strip() for name in args.layers.split(",") if name.strip()]
     unknown = [name for name in selected if name not in layers]
@@ -152,13 +158,11 @@ def main() -> int:
         if layer_name not in selected:
             statuses[layer_name] = "not selected"
             continue
-        assert isinstance(layer, dict)
         statuses[layer_name] = status_for(layer)
 
     if args.execute:
         for layer_name in selected:
             layer = layers[layer_name]
-            assert isinstance(layer, dict)
             if statuses[layer_name] == "installed":
                 print(f"skip {layer_name}: already installed")
             else:
@@ -167,13 +171,12 @@ def main() -> int:
     else:
         print("Dry run only. Re-run with --execute to install missing adapters.")
 
-    write_report(target, stack, statuses)
+    write_report(target, layers, statuses)
 
     print()
     print("| Layer | Framework | Status |")
     print("|---|---|---|")
     for layer_name, layer in layers.items():
-        assert isinstance(layer, dict)
         print(f"| {layer_name} | {layer['framework']} | {statuses[layer_name]} |")
 
     return 0

@@ -100,10 +100,22 @@ def resolve_requirement_source(source: Path, target: Path) -> Path:
     return candidates[0]
 
 
+def unique_copy_destination(destination: Path, used: set[Path]) -> Path:
+    if destination not in used:
+        return destination
+    suffix = 2
+    while True:
+        candidate = destination.with_name(f"{destination.stem}-{suffix}{destination.suffix}")
+        if candidate not in used:
+            return candidate
+        suffix += 1
+
+
 def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
     dest_dir = target / "docs" / "requirements"
     dest_dir.mkdir(parents=True, exist_ok=True)
     copied: list[Path] = []
+    used_destinations: set[Path] = set()
     for source in requirements:
         raw_source = source
         source = resolve_requirement_source(source, target)
@@ -129,10 +141,13 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
                     dst = dest_dir / source.name / rel
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(item, dst)
+                    used_destinations.add(dst.resolve())
                     copied.append(dst)
         else:
-            dst = dest_dir / source.name
+            dst = unique_copy_destination((dest_dir / source.name).resolve(), used_destinations)
+            dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, dst)
+            used_destinations.add(dst)
             copied.append(dst)
     return copied
 

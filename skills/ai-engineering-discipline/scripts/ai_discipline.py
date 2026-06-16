@@ -99,6 +99,7 @@ def parse_bool(value: object, fallback: bool = False) -> bool:
             return True
         if normalized in {"0", "false", "no", "n", "off"}:
             return False
+        return fallback
     if value is None:
         return fallback
     return bool(value)
@@ -395,18 +396,12 @@ def find_pilot_reports(inputs: list[str], default_target: Path) -> list[Path]:
         if path.is_file():
             candidates = [path]
         elif path.is_dir():
-            direct_runs = sorted((path / "docs" / "reports" / "runs").glob("pilot-report-*.json"))
-            direct = path / "docs" / "reports" / "pilot-report.json"
-            if direct_runs:
-                candidates.extend(direct_runs)
-            elif direct.exists():
-                candidates.append(direct)
+            run_reports = sorted(path.glob("**/docs/reports/runs/pilot-report-*.json"))
+            latest_reports = sorted(path.glob("**/docs/reports/pilot-report.json"))
+            if run_reports:
+                candidates.extend(run_reports)
             else:
-                nested_runs = sorted(path.glob("**/docs/reports/runs/pilot-report-*.json"))
-                if nested_runs:
-                    candidates.extend(nested_runs)
-                else:
-                    candidates.extend(path.glob("**/docs/reports/pilot-report.json"))
+                candidates.extend(latest_reports)
         for candidate in candidates:
             resolved = candidate.resolve()
             valid_report = resolved.name == "pilot-report.json" or (
