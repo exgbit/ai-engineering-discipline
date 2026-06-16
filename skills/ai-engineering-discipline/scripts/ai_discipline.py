@@ -10,6 +10,7 @@ import json
 import re
 import subprocess
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 
@@ -89,9 +90,48 @@ def read_json(path: Path) -> dict[str, object]:
     return data if isinstance(data, dict) else {}
 
 
+def parse_bool(value: object, fallback: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off"}:
+            return False
+    if value is None:
+        return fallback
+    return bool(value)
+
+
+def safe_int(value: object, fallback: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(str(value)))
+        except (TypeError, ValueError):
+            return fallback
+
+
+def safe_float(value: object, fallback: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def safe_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def md_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ").strip()
+
+
 def load_config(target: Path) -> dict[str, object]:
     config = read_json(target / CONFIG_NAME)
-    return config if config else DEFAULT_CONFIG.copy()
+    return config if config else deepcopy(DEFAULT_CONFIG)
 
 
 def config_defaults(target: Path) -> dict[str, object]:
@@ -115,8 +155,8 @@ def report_value(target: Path, key: str, fallback: object) -> object:
 def resolved_bool(args: argparse.Namespace, target: Path, key: str, fallback: bool = False) -> bool:
     value = getattr(args, key, None)
     if value is None:
-        return bool(default_value(target, key, fallback))
-    return bool(value)
+        return parse_bool(default_value(target, key, fallback), fallback)
+    return parse_bool(value, fallback)
 
 
 def resolved_timeout(args: argparse.Namespace, target: Path) -> int:
@@ -132,8 +172,8 @@ def resolved_timeout(args: argparse.Namespace, target: Path) -> int:
 def resolved_report_archive(args: argparse.Namespace, target: Path) -> bool:
     value = getattr(args, "archive_runs", None)
     if value is None:
-        return bool(report_value(target, "archive_runs", True))
-    return bool(value)
+        return parse_bool(report_value(target, "archive_runs", True), True)
+    return parse_bool(value, True)
 
 
 def read_text(path: Path) -> str:
@@ -208,11 +248,11 @@ def build_report_payload(target: Path) -> dict[str, object]:
     request = current_request_summary(target)
     verify = read_json(target / "docs" / "verify" / "verification-results.json")
     changed_files = git_changed_files(target)
-    required_checks = verify.get("required_checks", [])
-    skipped_checks = verify.get("skipped_required_checks", [])
-    blocking_reasons = verify.get("blocking_reasons", [])
-    native_checks = verify.get("native_checks", [])
-    executed_checks = verify.get("executed_checks", [])
+    required_checks = safe_list(verify.get("required_checks", []))
+    skipped_checks = safe_list(verify.get("skipped_required_checks", []))
+    blocking_reasons = safe_list(verify.get("blocking_reasons", []))
+    native_checks = safe_list(verify.get("native_checks", []))
+    executed_checks = safe_list(verify.get("executed_checks", []))
     memory_candidates = read_text(target / "docs" / "memory" / "memory-candidates.md")
     loop_run = read_text(target / "docs" / "loops" / "current-loop-run.md")
 
@@ -264,10 +304,15 @@ def write_pilot_report(target: Path, archive_runs: bool = True) -> Path:
     if archive_runs:
         run_dir = report_dir / "runs"
         run_dir.mkdir(parents=True, exist_ok=True)
-        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         name = slugify(str(request.get("name", "") or "report")) if isinstance(request, dict) else "report"
         archive_json_path = run_dir / f"pilot-report-{stamp}-{name}.json"
         archive_md_path = run_dir / f"pilot-report-{stamp}-{name}.md"
+        suffix = 1
+        while archive_json_path.exists() or archive_md_path.exists():
+            archive_json_path = run_dir / f"pilot-report-{stamp}-{name}-{suffix}.json"
+            archive_md_path = run_dir / f"pilot-report-{stamp}-{name}-{suffix}.md"
+            suffix += 1
 
     full_payload = {"generated_by": "ai-engineering-discipline", **payload}
     if archive_json_path and archive_md_path:
@@ -302,8 +347,8 @@ def write_pilot_report(target: Path, archive_runs: bool = True) -> Path:
         f"- Verification status: `{verification['overall_status']}`",
         f"- Can merge: `{str(verification['can_merge']).lower()}`",
         f"- Reason: {verification['overall_reason']}",
-        f"- Skipped required checks: `{', '.join(verification['skipped_required_checks']) if verification['skipped_required_checks'] else 'none'}`",
-        f"- Blocking reasons: `{', '.join(verification['blocking_reasons']) if verification['blocking_reasons'] else 'none'}`",
+        f"- Skipped required checks: `{', '.join(str(item) for item in safe_list(verification.get('skipped_required_checks'))) or 'none'}`",
+        f"- Blocking reasons: `{', '.join(str(item) for item in safe_list(verification.get('blocking_reasons'))) or 'none'}`",
         "",
         "## Metrics",
         "",
@@ -387,6 +432,8 @@ def row_from_report(path: Path) -> dict[str, object]:
         verification = {}
     if not isinstance(artifacts, dict):
         artifacts = {}
+    artifact_count = len(artifacts)
+    artifact_passed = sum(1 for value in artifacts.values() if parse_bool(value, False))
     return {
         "report": str(path),
         "created": data.get("created", ""),
@@ -395,14 +442,14 @@ def row_from_report(path: Path) -> dict[str, object]:
         "name": request.get("name", ""),
         "risk": request.get("risk", ""),
         "verification_status": verification.get("overall_status", "missing"),
-        "can_merge": bool(verification.get("can_merge", False)),
-        "required_check_count": int(metrics.get("required_check_count") or 0),
-        "executed_check_count": int(metrics.get("executed_check_count") or 0),
-        "skipped_required_check_count": int(metrics.get("skipped_required_check_count") or 0),
-        "blocking_reason_count": int(metrics.get("blocking_reason_count") or 0),
-        "loop_states_recorded": int(metrics.get("loop_states_recorded") or 0),
-        "memory_candidate_sections": int(metrics.get("memory_candidate_sections") or 0),
-        "artifact_coverage": sum(1 for value in artifacts.values() if value) / len(artifacts) if artifacts else 0.0,
+        "can_merge": parse_bool(verification.get("can_merge", False), False),
+        "required_check_count": safe_int(metrics.get("required_check_count")),
+        "executed_check_count": safe_int(metrics.get("executed_check_count")),
+        "skipped_required_check_count": safe_int(metrics.get("skipped_required_check_count")),
+        "blocking_reason_count": safe_int(metrics.get("blocking_reason_count")),
+        "loop_states_recorded": safe_int(metrics.get("loop_states_recorded")),
+        "memory_candidate_sections": safe_int(metrics.get("memory_candidate_sections")),
+        "artifact_coverage": artifact_passed / artifact_count if artifact_count else 0.0,
     }
 
 
@@ -495,7 +542,8 @@ def write_metrics_summary(paths: list[Path], output_dir: Path) -> Path:
         "|---|---:|",
     ])
     for key, value in summary["averages"].items():
-        display = f"{value * 100:.1f}%" if key == "artifact_coverage" else f"{value:.2f}"
+        numeric = safe_float(value)
+        display = f"{numeric * 100:.1f}%" if key == "artifact_coverage" else f"{numeric:.2f}"
         lines.append(f"| {key} | {display} |")
     lines.extend([
         "",
@@ -506,8 +554,8 @@ def write_metrics_summary(paths: list[Path], output_dir: Path) -> Path:
     ])
     for row in rows:
         lines.append(
-            f"| {row['name'] or 'unknown'} | {row['task'] or 'unknown'} | {row['risk'] or 'unknown'} | "
-            f"{row['verification_status']} | `{str(row['can_merge']).lower()}` | "
+            f"| {md_cell(row['name'] or 'unknown')} | {md_cell(row['task'] or 'unknown')} | "
+            f"{md_cell(row['risk'] or 'unknown')} | {md_cell(row['verification_status'])} | `{str(row['can_merge']).lower()}` | "
             f"{row['executed_check_count']} | {row['skipped_required_check_count']} | {row['blocking_reason_count']} |"
         )
     lines.extend([
@@ -618,19 +666,19 @@ def command_doctor(args: argparse.Namespace) -> int:
     return run_python(script_path("doctor.py"), command_args)
 
 
-def write_default_config(target: Path, force: bool) -> Path:
+def write_default_config(target: Path, force: bool) -> tuple[Path, bool]:
     path = target / CONFIG_NAME
     if path.exists() and not force:
-        return path
+        return path, False
     path.write_text(json.dumps(DEFAULT_CONFIG, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
+    return path, True
 
 
 def command_config(args: argparse.Namespace) -> int:
     target = target_from_args(args)
     if args.init:
-        path = write_default_config(target, args.force)
-        print(f"wrote: {path}")
+        path, wrote = write_default_config(target, args.force)
+        print(f"{'wrote' if wrote else 'exists'}: {path}")
         return 0
     config = load_config(target)
     print(json.dumps(config, ensure_ascii=False, indent=2))
