@@ -66,7 +66,7 @@ python <skill_dir>/scripts/ai_discipline.py execute .
 python <skill_dir>/scripts/ai_discipline.py report .
 ```
 
-`report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with merge readiness, artifact coverage, check counts, loop-state coverage, and memory-candidate counts.
+`report` writes the latest `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json`, then archives each run under `docs/reports/runs/` by default.
 
 Use `metrics` to aggregate pilot reports across runs or projects:
 
@@ -74,6 +74,8 @@ Use `metrics` to aggregate pilot reports across runs or projects:
 python <skill_dir>/scripts/ai_discipline.py metrics .
 python <skill_dir>/scripts/ai_discipline.py metrics . --input ../project-a --input ../project-b
 ```
+
+If archived runs exist, `metrics` uses them and avoids double-counting the latest report.
 
 Read `.ai-discipline.json` for project defaults before assuming verification behavior. Show or initialize it with:
 

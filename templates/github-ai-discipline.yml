@@ -36,3 +36,5 @@ jobs:
             docs/verify/verification-results.md
             docs/reports/pilot-report.json
             docs/reports/pilot-report.md
+            docs/reports/runs/*.json
+            docs/reports/runs/*.md

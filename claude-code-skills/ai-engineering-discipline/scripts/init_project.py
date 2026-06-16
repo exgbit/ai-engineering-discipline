@@ -331,7 +331,7 @@ python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py verify 
 python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
 ```
 
-`report` writes `docs/reports/pilot-report.md` and `.json` for team review and pilot metrics.
+`report` writes the latest `docs/reports/pilot-report.md` and `.json`, and archives each run under `docs/reports/runs/` by default.
 
 Aggregate reports after several runs:
 
@@ -339,7 +339,7 @@ Aggregate reports after several runs:
 python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics .
 ```
 
-This writes `docs/reports/pilot-summary.md`, `.json`, and `.csv`.
+This writes `docs/reports/pilot-summary.md`, `.json`, and `.csv`. If archived runs exist, metrics uses them instead of double-counting the latest report.
 
 Defaults live in `.ai-discipline.json`. Show or initialize them with:
 
@@ -691,7 +691,8 @@ AI_DISCIPLINE_CONFIG = """{
     "timeout_seconds": 600
   },
   "reports": {
-    "write_pilot_report": true
+    "write_pilot_report": true,
+    "archive_runs": true
   }
 }
 """
@@ -735,6 +736,8 @@ jobs:
             docs/verify/verification-results.md
             docs/reports/pilot-report.json
             docs/reports/pilot-report.md
+            docs/reports/runs/*.json
+            docs/reports/runs/*.md
 """
 
 

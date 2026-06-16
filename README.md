@@ -220,7 +220,7 @@ scripts\ai-discipline.bat verify --project C:\path\to\target-project --fail-on-v
 scripts\ai-discipline.bat report --project C:\path\to\target-project
 ```
 
-`report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with artifact coverage, required/executed/skipped checks, merge readiness, memory-candidate count, loop-state coverage, and changed-file count when Git is available.
+`report` writes `docs/reports/pilot-report.md` and `docs/reports/pilot-report.json` with artifact coverage, required/executed/skipped checks, merge readiness, memory-candidate count, loop-state coverage, and changed-file count when Git is available. By default, every run is also archived under `docs/reports/runs/` so one project can accumulate trend data over time.
 
 Aggregate multiple pilot reports for team review or external writeups:
 
@@ -236,6 +236,8 @@ docs/reports/pilot-summary.md
 docs/reports/pilot-summary.json
 docs/reports/pilot-summary.csv
 ```
+
+When a project contains `docs/reports/runs/`, `metrics` uses archived run reports first and avoids double-counting the latest `pilot-report.json`.
 
 Project defaults live in `.ai-discipline.json`. Initialize or inspect them with:
 
@@ -253,6 +255,9 @@ For mature teams, set these defaults in the target project:
     "run_semgrep": true,
     "run_native_checks": true,
     "fail_on_verify_failure": true
+  },
+  "reports": {
+    "archive_runs": true
   }
 }
 ```

@@ -67,6 +67,8 @@ For multiple pilot projects, aggregate from a summary repository or one selected
 python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py metrics . --input ../project-a --input ../project-b
 ```
 
+Each `report` call keeps the latest report at `docs/reports/pilot-report.*` and archives a historical copy under `docs/reports/runs/`. Use the archived runs for weekly trend analysis.
+
 ## Decision After Four Weeks
 
 Choose one:

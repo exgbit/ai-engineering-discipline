@@ -28,6 +28,7 @@ DEFAULT_CONFIG: dict[str, object] = {
     },
     "reports": {
         "write_pilot_report": True,
+        "archive_runs": True,
     },
 }
 
@@ -98,8 +99,17 @@ def config_defaults(target: Path) -> dict[str, object]:
     return defaults if isinstance(defaults, dict) else {}
 
 
+def config_reports(target: Path) -> dict[str, object]:
+    reports = load_config(target).get("reports", {})
+    return reports if isinstance(reports, dict) else {}
+
+
 def default_value(target: Path, key: str, fallback: object) -> object:
     return config_defaults(target).get(key, fallback)
+
+
+def report_value(target: Path, key: str, fallback: object) -> object:
+    return config_reports(target).get(key, fallback)
 
 
 def resolved_bool(args: argparse.Namespace, target: Path, key: str, fallback: bool = False) -> bool:
@@ -119,6 +129,13 @@ def resolved_timeout(args: argparse.Namespace, target: Path) -> int:
         return 600
 
 
+def resolved_report_archive(args: argparse.Namespace, target: Path) -> bool:
+    value = getattr(args, "archive_runs", None)
+    if value is None:
+        return bool(report_value(target, "archive_runs", True))
+    return bool(value)
+
+
 def read_text(path: Path) -> str:
     if not path.exists():
         return ""
@@ -129,6 +146,19 @@ def extract_bullet_value(text: str, label: str) -> str:
     pattern = rf"^- {re.escape(label)}:\s*`?([^`\n]+)`?\s*$"
     match = re.search(pattern, text, flags=re.MULTILINE)
     return match.group(1).strip() if match else ""
+
+
+def slugify(value: str) -> str:
+    result = []
+    previous_dash = False
+    for char in value.lower():
+        if char.isalnum():
+            result.append(char)
+            previous_dash = False
+        elif not previous_dash:
+            result.append("-")
+            previous_dash = True
+    return "".join(result).strip("-") or "report"
 
 
 def current_request_summary(target: Path) -> dict[str, object]:
@@ -222,17 +252,36 @@ def build_report_payload(target: Path) -> dict[str, object]:
     }
 
 
-def write_pilot_report(target: Path) -> Path:
+def write_pilot_report(target: Path, archive_runs: bool = True) -> Path:
     payload = build_report_payload(target)
     report_dir = target / "docs" / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
     json_path = report_dir / "pilot-report.json"
     md_path = report_dir / "pilot-report.md"
-    json_path.write_text(json.dumps({"generated_by": "ai-engineering-discipline", **payload}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    request = payload["request"]
+    archive_json_path = None
+    archive_md_path = None
+    if archive_runs:
+        run_dir = report_dir / "runs"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        name = slugify(str(request.get("name", "") or "report")) if isinstance(request, dict) else "report"
+        archive_json_path = run_dir / f"pilot-report-{stamp}-{name}.json"
+        archive_md_path = run_dir / f"pilot-report-{stamp}-{name}.md"
+
+    full_payload = {"generated_by": "ai-engineering-discipline", **payload}
+    if archive_json_path and archive_md_path:
+        full_payload["archive"] = {
+            "json": rel(archive_json_path, target),
+            "markdown": rel(archive_md_path, target),
+        }
+    body = json.dumps(full_payload, ensure_ascii=False, indent=2) + "\n"
+    json_path.write_text(body, encoding="utf-8")
+    if archive_json_path:
+        archive_json_path.write_text(body, encoding="utf-8")
 
     metrics = payload["metrics"]
     verification = payload["verification"]
-    request = payload["request"]
     artifacts = payload["artifacts"]
     lines = [
         "# Pilot Report",
@@ -282,7 +331,12 @@ def write_pilot_report(target: Path) -> Path:
         "",
         f"Structured data: `{rel(json_path, target)}`",
     ])
-    md_path.write_text(GENERATED + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    if archive_md_path:
+        lines.append(f"- Archived copy: `{rel(archive_md_path, target)}`")
+    markdown = GENERATED + "\n" + "\n".join(lines) + "\n"
+    md_path.write_text(markdown, encoding="utf-8")
+    if archive_md_path:
+        archive_md_path.write_text(markdown, encoding="utf-8")
     return md_path
 
 
@@ -296,13 +350,24 @@ def find_pilot_reports(inputs: list[str], default_target: Path) -> list[Path]:
         if path.is_file():
             candidates = [path]
         elif path.is_dir():
+            direct_runs = sorted((path / "docs" / "reports" / "runs").glob("pilot-report-*.json"))
             direct = path / "docs" / "reports" / "pilot-report.json"
-            if direct.exists():
+            if direct_runs:
+                candidates.extend(direct_runs)
+            elif direct.exists():
                 candidates.append(direct)
-            candidates.extend(path.glob("**/pilot-report.json"))
+            else:
+                nested_runs = sorted(path.glob("**/docs/reports/runs/pilot-report-*.json"))
+                if nested_runs:
+                    candidates.extend(nested_runs)
+                else:
+                    candidates.extend(path.glob("**/docs/reports/pilot-report.json"))
         for candidate in candidates:
             resolved = candidate.resolve()
-            if resolved not in seen and resolved.name == "pilot-report.json":
+            valid_report = resolved.name == "pilot-report.json" or (
+                resolved.name.startswith("pilot-report-") and resolved.name.endswith(".json")
+            )
+            if resolved not in seen and valid_report:
                 seen.add(resolved)
                 reports.append(resolved)
     return sorted(reports)
@@ -533,14 +598,14 @@ def command_run(args: argparse.Namespace) -> int:
     execute_args.request = None
     execute_args.skip_init = True
     execute_code = run_python(script_path("execute_request.py"), build_execute_args(execute_args, target))
-    report = write_pilot_report(target)
+    report = write_pilot_report(target, archive_runs=resolved_report_archive(args, target))
     print(f"wrote: {report}")
     return execute_code
 
 
 def command_report(args: argparse.Namespace) -> int:
     target = target_from_args(args)
-    report = write_pilot_report(target)
+    report = write_pilot_report(target, archive_runs=resolved_report_archive(args, target))
     print(f"wrote: {report}")
     return 0
 
@@ -632,6 +697,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--timeout-seconds", type=int)
     run.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
     run.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
+    run.add_argument("--archive-runs", dest="archive_runs", action="store_true", default=None)
+    run.add_argument("--no-archive-runs", dest="archive_runs", action="store_false")
     run.set_defaults(func=command_run)
 
     execute = subparsers.add_parser("execute", help="Generate workflow artifacts and optionally run checks.")
@@ -662,6 +729,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     report = subparsers.add_parser("report", help="Write docs/reports/pilot-report.md and .json.")
     add_common_project(report)
+    report.add_argument("--archive-runs", dest="archive_runs", action="store_true", default=None)
+    report.add_argument("--no-archive-runs", dest="archive_runs", action="store_false")
     report.set_defaults(func=command_report)
 
     doctor = subparsers.add_parser("doctor", help="Diagnose framework installation.")

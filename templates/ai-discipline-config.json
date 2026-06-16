@@ -9,6 +9,7 @@
     "timeout_seconds": 600
   },
   "reports": {
-    "write_pilot_report": true
+    "write_pilot_report": true,
+    "archive_runs": true
   }
 }
