@@ -19,13 +19,17 @@ RATE_FIELDS = {
 }
 
 
-def parse_float(value: str) -> float:
+def parse_float(value: str, field: str = "") -> float:
     value = value.strip()
     if not value or value.lower() in {"n/a", "na", "null", "none", "-"}:
         return 0.0
-    if value.endswith("%"):
-        return float(value[:-1]) / 100
-    return float(value)
+    try:
+        if value.endswith("%"):
+            return float(value[:-1]) / 100
+        return float(value)
+    except ValueError:
+        where = f" for `{field}`" if field else ""
+        raise SystemExit(f"无法解析指标数值{where}: {value!r}")
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -73,16 +77,16 @@ def main() -> int:
 
     print("# Pilot Metrics Summary")
     print()
-    print(f"- Baseline: `{baseline['week']}`")
-    print(f"- Latest: `{latest['week']}`")
+    print(f"- Baseline: `{baseline.get('week', '?')}`")
+    print(f"- Latest: `{latest.get('week', '?')}`")
     print()
     print("| Metric | Baseline | Latest | Delta |")
     print("|---|---:|---:|---:|")
     for field in fields:
         if field not in baseline or field not in latest:
             continue
-        start = parse_float(baseline[field])
-        end = parse_float(latest[field])
+        start = parse_float(baseline[field], field)
+        end = parse_float(latest[field], field)
         delta = end - start
         print(
             f"| {field} | {fmt_value(field, start)} | "

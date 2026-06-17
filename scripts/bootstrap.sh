@@ -44,8 +44,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRAMEWORK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 if command -v python3 >/dev/null 2>&1; then
   PYTHON=python3
-else
+elif command -v python >/dev/null 2>&1 && \
+     python -c 'import sys; sys.exit(0 if sys.version_info[:2] >= (3, 9) else 1)' >/dev/null 2>&1; then
   PYTHON=python
+else
+  echo "Python 3.9+ is required (python3 not found)." >&2
+  exit 1
 fi
 
 if [[ ! -d "$TARGET_DIR" ]]; then
@@ -152,10 +156,12 @@ write_file_if_missing "$TARGET_DIR/docs/memory/pitfalls.md" "Pitfalls" \
 - Rule / Lesson:
 - Verification to add next time:"
 
+# 适配器安装失败不应中断 bootstrap(框架文件已装好);与 bootstrap.bat 的容错行为保持一致
 if [[ "$INSTALL_ADAPTERS" == "1" ]]; then
-  "$PYTHON" "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR" --execute
+  "$PYTHON" "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR" --execute \
+    || echo "Warning: adapter install reported failures; review $TARGET_DIR/docs/adapters/default-stack.md." >&2
 else
-  "$PYTHON" "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR"
+  "$PYTHON" "$FRAMEWORK_ROOT/scripts/install_default_adapters.py" "$TARGET_DIR" || true
 fi
 
 echo

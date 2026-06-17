@@ -1,6 +1,6 @@
 ---
 name: ai-engineering-discipline
-description: Bootstrap and operate AI-assisted software projects with the Spec / Verify / Memory + Loop framework. Use when the user wants to initialize a project for Claude Code, reduce manual setup, create CLAUDE.md/AGENTS-style operating rules, install docs/specs docs/verify docs/memory docs/loops templates, choose an agent loop, or enter development with automated spec-first, verify-gated, memory-writing workflow.
+description: Turn any plain-language development request into a finished, verified change. Use whenever the user asks to add a feature, fix a bug, refactor, migrate, improve, or otherwise change code in this project — phrased in ordinary language like "add a refund approval flow" or "fix the login timeout". Infer the task type, write and fill the spec, implement in small steps, and verify automatically, without making the user learn task types, risk levels, presets, or the Spec/Loop/Verify/Memory workflow. Also use to bootstrap a repository with the framework.
 ---
 
 # AI Engineering Discipline
@@ -32,6 +32,35 @@ Loop   -> ai-loop   -> LangGraph
 Verify -> ai-verify -> Semgrep + native tests
 Memory -> ai-memory -> Mem0 + local docs/memory
 ```
+
+Integration depth differs by design: only Verify runs an external tool (Semgrep) at runtime via `execute_request.py`. Spec/Loop/Memory generate connected Markdown artifacts and guidance; the framework name in each row is the recommended tool to adopt manually, not something the scripts invoke. See `framework/integration-levels.md`.
+
+## Default Entry: One Plain Sentence
+
+This is the primary way to use the framework. The user should never have to pick a "task type", "risk", or "preset", or learn what Spec / Loop / Verify / Memory mean. When the user expresses any development intent in ordinary language — "add a refund approval flow", "fix the login timeout", "rename X to Y", "make the report query faster" — drive the whole flow yourself:
+
+1. **Infer, do not ask.** From the sentence, infer the task type (feature / bugfix / refactor / migration / docs / verify / memory) and a short name. Use that task's default risk. Do not ask the user to choose any of these.
+2. **Capture the requirement.** Write the user's request into `docs/requirements/<slug>.md` as one short file so it becomes a tracked source.
+3. **Generate the scaffold** by running the managed request (this writes the spec/loop/verify/memory artifacts):
+   ```bash
+   python <skill_dir>/scripts/ai_discipline.py run . \
+     --task <inferred> --name "<inferred name>" --requirements docs/requirements/<slug>.md
+   ```
+4. **Fill the spec yourself.** The generated spec has `TBD` placeholders (requirements table, impact analysis, acceptance criteria, test plan). Complete them from your understanding of the request and the codebase. Never hand `TBD`s back to the user.
+5. **Implement in small steps.** Once the spec and loop are ready, implement the change in scoped steps following the loop. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
+6. **Verify.** Run native checks (and Semgrep if installed) and read `can_merge` / blocking reasons:
+   ```bash
+   python <skill_dir>/scripts/ai_discipline.py execute . --run-native-checks
+   ```
+7. **Report in plain language.** Summarize what changed, the verification result, and the changed files. Update memory only with durable lessons.
+
+**If the user already has a requirements folder** (many `.md` files and/or images, screenshots, diagrams, PDFs), use it instead of inventing the requirement: pass the whole folder to `--requirements <folder>` — it ingests text docs and images/PDFs alike. Then **read every Markdown file and visually inspect every image/PDF in it** to extract the requirements, and fold them into the spec. Image/PDF content is understood by you visually; the scripts only track the files, they do not read images.
+
+Throughout, talk to the user about *what* is happening in ordinary language — never in terms of "Spec/Loop/Verify/Memory". Stop and ask only for real stop conditions (destructive operations, production data, credentials, permissions, or unresolvable conflicts).
+
+## Underlying Mechanism
+
+The sections below are how the flow above is implemented. The user does not need to see these commands or terms.
 
 If requirement documents already exist, import them first with the `ai-spec` workflow, create `docs/specs/requirements-index.md`, then select a loop. Do not code until spec and loop are ready.
 
@@ -117,10 +146,10 @@ Write results to `docs/verify/verification-results.json` and `docs/verify/verifi
 
 Use `--fail-on-verify-failure` only when the caller wants a non-zero exit after results are written and the overall verification status is `blocked`.
 
-If Claude Code setup is unclear or commands are missing, run:
+If setup is unclear or commands are missing, run:
 
 ```bash
-python .claude/skills/ai-engineering-discipline/scripts/doctor.py .
+python <skill_dir>/scripts/doctor.py .
 ```
 
 This writes `docs/ai-engineering/doctor-report.md`.
@@ -201,7 +230,7 @@ Spec -> Loop -> Verify -> Memory
 - If no spec exists, create one from `docs/specs/spec-template.md` before coding.
 - If no loop exists for the task type, create one from `docs/loops/loop-template.md`.
 - Use `docs/loops/bugfix-loop.md` for bug fixes with reproduction steps.
-- Run verification from `docs/verify/verify-checklist.md`.
+- Run machine gates via `execute_request.py` (Semgrep + native checks; `can_merge` comes from the preset's required checks). Use `docs/verify/verify-checklist.md` as the complementary human review checklist.
 - Update memory only with durable lessons learned during the task.
 
 For managed requests, prefer `scripts/execute_request.py` before implementation. It converts `docs/ai-engineering/current-request.md` into concrete generated artifacts, so the agent does not need to reinterpret low-level framework parameters.

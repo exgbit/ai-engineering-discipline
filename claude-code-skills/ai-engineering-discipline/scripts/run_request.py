@@ -13,9 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LOCAL_PRESETS_DIR = Path(__file__).resolve().parents[1] / "presets"
-REPO_PRESETS_DIR = ROOT / "presets"
-PRESETS_DIR = LOCAL_PRESETS_DIR if LOCAL_PRESETS_DIR.exists() else REPO_PRESETS_DIR
+PRESETS_DIR = ROOT / "presets"
 
 
 TASK_LOOPS = {
@@ -38,6 +36,13 @@ DEFAULT_RISK = {
     "memory": "low",
 }
 PRESET_ALIASES = {"auto", "default", "standard"}
+
+# 需求源可纳入的文件类型:文本文档 + 图片 / PDF。图片/PDF 的需求内容由 Claude 视觉识别,
+# 脚本只负责把它们一并纳入 docs/requirements/ 作为受跟踪的需求源。
+REQUIREMENT_EXTS = {
+    ".md", ".txt", ".rst", ".json", ".yaml", ".yml",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".pdf",
+}
 
 
 def slugify(value: str) -> str:
@@ -66,12 +71,13 @@ def run_script(script: Path, target: Path) -> None:
 
 
 def skill_script(name: str) -> Path:
-    repo_script = ROOT / "skills" / "ai-engineering-discipline" / "scripts" / name
+    # 同目录(权威源 scripts/,或安装后 skill 自带的 scripts/)优先,避免反向依赖另一份副本
     local_script = Path(__file__).resolve().parent / name
-    if repo_script.exists():
-        return repo_script
     if local_script.exists():
         return local_script
+    repo_script = ROOT / "skills" / "ai-engineering-discipline" / "scripts" / name
+    if repo_script.exists():
+        return repo_script
     raise SystemExit(f"Cannot locate required script: {name}")
 
 
@@ -83,7 +89,10 @@ def load_preset(task: str, risk: str, preset_name: str | None) -> dict[str, obje
     if not path.exists():
         available = ", ".join(sorted(p.stem for p in PRESETS_DIR.glob("*.json")))
         raise SystemExit(f"Preset not found: {name}. Available presets: {available}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid preset JSON: {path}: {exc}") from exc
 
 
 def resolve_requirement_source(source: Path, target: Path) -> Path:
@@ -145,7 +154,7 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
         if source == dest_dir or path_is_relative_to(source, dest_dir):
             if source.is_dir():
                 for item in sorted(source.rglob("*")):
-                    if item.is_file() and item.suffix.lower() in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}:
+                    if item.is_file() and item.suffix.lower() in REQUIREMENT_EXTS:
                         copied.append(item)
             else:
                 copied.append(source)
@@ -154,7 +163,7 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
             dst_root = unique_copy_root((dest_dir / source.name).resolve(), reserved_destinations)
             reserved_destinations.add(dst_root)
             for item in sorted(source.rglob("*")):
-                if item.is_file() and item.suffix.lower() in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}:
+                if item.is_file() and item.suffix.lower() in REQUIREMENT_EXTS:
                     rel = item.relative_to(source)
                     dst = dst_root / rel
                     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -170,22 +179,16 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
     return copied
 
 
-def ensure_loop(target: Path, task: str) -> Path:
-    loop_name = TASK_LOOPS[task]
-    loop_path = target / "docs" / "loops" / f"{loop_name}.md"
-    if loop_path.exists():
-        return loop_path
-    loop_path.parent.mkdir(parents=True, exist_ok=True)
-    template = target / "docs" / "loops" / "loop-template.md"
-    if template.exists():
-        content = template.read_text(encoding="utf-8")
-    else:
-        content = "# Loop Template\n\n"
-    loop_path.write_text(
-        "<!-- ai-engineering:generated -->\n" + content.replace("# Loop Template", f"# {loop_name}"),
-        encoding="utf-8",
-    )
-    return loop_path
+def resolve_loop_path(target: Path, task: str, preset: dict[str, object]) -> Path:
+    """计算 loop 产物路径,不创建文件。
+
+    完整 loop 内容由后续 execute_request 写入;此处若预建桩文件(含 GENERATED 标记),
+    会被 execute_request 的 safe_write 当成"已生成"跳过,导致详细 loop 永远写不进去。
+    """
+    loop_config = preset.get("loop", {})
+    runbook = loop_config.get("runbook") if isinstance(loop_config, dict) else None
+    name = runbook if isinstance(runbook, str) and runbook else TASK_LOOPS[task]
+    return target / "docs" / "loops" / f"{name}.md"
 
 
 def render_json_block(value: object) -> str:
@@ -206,14 +209,7 @@ def write_request(
     request_path = request_dir / "current-request.md"
     slug = slugify(name)
     spec_path = target / "docs" / "specs" / f"{slug}.md"
-    loop_config = preset.get("loop", {})
-    runbook = loop_config.get("runbook") if isinstance(loop_config, dict) else None
-    if isinstance(runbook, str) and runbook:
-        loop_path = target / "docs" / "loops" / f"{runbook}.md"
-        if not loop_path.exists():
-            loop_path = ensure_loop(target, task)
-    else:
-        loop_path = ensure_loop(target, task)
+    loop_path = resolve_loop_path(target, task, preset)
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     req_lines = "\n".join(

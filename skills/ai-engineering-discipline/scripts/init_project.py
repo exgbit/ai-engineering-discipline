@@ -684,7 +684,6 @@ Record repeated bugs, failed assumptions, review findings, and incident lessons 
 AI_DISCIPLINE_CONFIG = """{
   "version": 1,
   "defaults": {
-    "risk": "medium",
     "verify": false,
     "run_semgrep": false,
     "run_native_checks": false,
@@ -783,22 +782,46 @@ FILE_SPECS = {
 SKILL_NAMES = ["ai-engineering-discipline", "ai-spec", "ai-loop", "ai-verify", "ai-memory"]
 
 
-def write_file(path: Path, content: str, force: bool) -> str:
+# --force 时这些"用户常自著"文件覆盖前先备份一份 .bak
+BACKUP_ON_FORCE = {"CLAUDE.md", "AGENTS.md", ".ai-discipline.json"}
+
+
+def write_file(path: Path, content: str, force: bool, backup: bool = False) -> str:
+    new_body = content.rstrip() + "\n"
     if path.exists() and not force:
         return "skip"
+    # --force 覆盖用户可能自著的文件前,内容确有变化才备份一份 .bak
+    if backup and path.exists():
+        existing = path.read_text(encoding="utf-8", errors="ignore")
+        if existing != new_body:
+            bak = path.with_name(path.name + ".bak")
+            bak.write_text(existing, encoding="utf-8")
+            print(f"backup: {bak}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content.rstrip() + "\n", encoding="utf-8")
+    path.write_text(new_body, encoding="utf-8")
     return "write"
+
+
+def find_repo_root(start: Path) -> Path | None:
+    """从 start 起向上(含自身)找框架根:含 claude-code-skills/ 或 skills/ 下
+    ai-engineering-discipline/SKILL.md 的目录。位置无关,顶层 scripts/ 与 skill 内
+    副本都能正确定位;安装到目标项目后(.claude/skills 下)找不到则返回 None。"""
+    for base in [start, *start.parents]:
+        for sub in ("claude-code-skills", "skills"):
+            if (base / sub / "ai-engineering-discipline" / "SKILL.md").is_file():
+                return base
+    return None
 
 
 def source_text(current_skill_root: Path, rel_path: str | None, fallback: str) -> str:
     if not rel_path:
         return fallback
-    repo_root = current_skill_root.parent.parent
-    candidates = [
-        repo_root / rel_path,
-        current_skill_root / "references" / rel_path,
-    ]
+    candidates = []
+    repo_root = find_repo_root(current_skill_root)
+    if repo_root is not None:
+        candidates.append(repo_root / rel_path)
+    # 安装后场景:skill 自带 references/ 副本
+    candidates.append(current_skill_root / "references" / rel_path)
     for candidate in candidates:
         if candidate.is_file():
             return candidate.read_text(encoding="utf-8")
@@ -813,11 +836,13 @@ def framework_files(current_skill_root: Path) -> dict[str, str]:
 
 
 def skill_source_parent(current_skill_root: Path, flavor: str) -> Path | None:
-    repo_root = current_skill_root.parent.parent
     preferred_name = "claude-code-skills" if flavor == "claude" else "skills"
-    preferred = repo_root / preferred_name
-    if (preferred / "ai-engineering-discipline" / "SKILL.md").exists():
-        return preferred
+    repo_root = find_repo_root(current_skill_root)
+    if repo_root is not None:
+        preferred = repo_root / preferred_name
+        if (preferred / "ai-engineering-discipline" / "SKILL.md").exists():
+            return preferred
+    # 安装后场景:脚本就在 <dest>/skills/ai-engineering-discipline/scripts/ 下
     fallback = current_skill_root.parent
     if (fallback / "ai-engineering-discipline" / "SKILL.md").exists():
         return fallback
@@ -875,7 +900,8 @@ def main() -> int:
     current_skill_root = Path(__file__).resolve().parents[1]
     counts = {"write": 0, "skip": 0}
     for rel_path, content in framework_files(current_skill_root).items():
-        result = write_file(target / rel_path, content, args.force)
+        backup = Path(rel_path).name in BACKUP_ON_FORCE
+        result = write_file(target / rel_path, content, args.force, backup=backup)
         counts[result] += 1
         print(f"{result}: {target / rel_path}")
     skill_counts = install_skill_dirs(target, args.force)

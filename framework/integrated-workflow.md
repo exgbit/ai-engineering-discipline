@@ -19,14 +19,16 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
   --risk medium
 ```
 
-Internally, the framework routes work through four integrated steps:
+Internally, the framework routes work through four steps. Each step maps to a recommended open-source framework, but the integration depth differs by design (see `integration-levels.md`):
 
 ```text
-Spec   -> ai-spec   -> GitHub Spec Kit
-Loop   -> ai-loop   -> LangGraph
-Verify -> ai-verify -> Semgrep + native tests
-Memory -> ai-memory -> Mem0 + local docs/memory
+Spec   -> ai-spec   -> GitHub Spec Kit   (artifact-compatible: generates a Markdown spec; Spec Kit not invoked)
+Loop   -> ai-loop   -> LangGraph         (runbook-compatible: generates a Markdown loop; LangGraph not invoked)
+Verify -> ai-verify -> Semgrep + native  (runtime-integrated: execute_request actually runs Semgrep + native checks)
+Memory -> ai-memory -> Mem0 + docs/memory (local-memory-first: writes docs/memory; Mem0 not invoked by default)
 ```
+
+Only the Verify step calls an external tool at runtime today. The other three produce connected Markdown artifacts and guidance; the framework name in each row is the recommended tool to adopt manually, not something the scripts execute.
 
 ## What This Framework Adds
 

@@ -20,7 +20,6 @@ CONFIG_NAME = ".ai-discipline.json"
 DEFAULT_CONFIG: dict[str, object] = {
     "version": 1,
     "defaults": {
-        "risk": "medium",
         "verify": False,
         "run_semgrep": False,
         "run_native_checks": False,
@@ -32,14 +31,6 @@ DEFAULT_CONFIG: dict[str, object] = {
         "archive_runs": True,
     },
 }
-
-
-def path_is_relative_to(path: Path, base: Path) -> bool:
-    try:
-        path.relative_to(base)
-        return True
-    except ValueError:
-        return False
 
 
 def rel(path: Path, target: Path) -> str:
@@ -140,6 +131,12 @@ def merge_dicts(base: dict[str, object], override: dict[str, object]) -> dict[st
     return merged
 
 
+SKIP_SCAN_DIRS = {
+    "node_modules", "vendor", "dist", "build", "target",
+    ".git", ".venv", "venv", "__pycache__", ".tox",
+}
+
+
 def discover_report_dirs(path: Path) -> list[Path]:
     report_dirs: set[Path] = set()
     if path.is_dir():
@@ -148,15 +145,14 @@ def discover_report_dirs(path: Path) -> list[Path]:
         direct = path / "docs" / "reports"
         if direct.is_dir():
             report_dirs.add(direct.resolve())
-        for candidate in path.glob("**/docs/reports"):
-            if candidate.is_dir():
-                report_dirs.add(candidate.resolve())
-    discovered = sorted(report_dirs)
-    if len(discovered) > 1:
-        filtered = [item for item in discovered if item.parent.parent.resolve() != path.resolve()]
-        if filtered:
-            return filtered
-    return discovered
+        # 只扫一层子项目(monorepo),不递归整棵树:避免命中 node_modules 等依赖里残留的
+        # docs/reports 把无关数据当作 pilot 证据,也避免大仓全量递归变慢
+        for child in sorted(path.iterdir()):
+            if child.is_dir() and not child.name.startswith(".") and child.name not in SKIP_SCAN_DIRS:
+                sub = child / "docs" / "reports"
+                if sub.is_dir():
+                    report_dirs.add(sub.resolve())
+    return sorted(report_dirs)
 
 
 def load_config(target: Path) -> dict[str, object]:
@@ -316,7 +312,10 @@ def build_report_payload(target: Path) -> dict[str, object]:
             "generated_or_updated_artifacts": count_generated_actions(target),
             "git_changed_files": changed_files,
             "required_check_count": len(required_checks) if isinstance(required_checks, list) else 0,
-            "executed_check_count": len(executed_checks) if isinstance(executed_checks, list) else 0,
+            "executed_check_count": (
+                sum(1 for c in executed_checks if not (isinstance(c, dict) and c.get("status") == "skipped"))
+                if isinstance(executed_checks, list) else 0
+            ),
             "native_check_count": len(native_checks) if isinstance(native_checks, list) else 0,
             "skipped_required_check_count": len(skipped_checks) if isinstance(skipped_checks, list) else 0,
             "blocking_reason_count": len(blocking_reasons) if isinstance(blocking_reasons, list) else 0,
@@ -438,10 +437,6 @@ def find_pilot_reports(inputs: list[str], default_target: Path) -> list[Path]:
             candidates = [path]
         elif path.is_dir():
             report_dirs = discover_report_dirs(path)
-            if len(report_dirs) > 1:
-                filtered = [item for item in report_dirs if item.parent.parent.resolve() != default_target.resolve()]
-                if filtered:
-                    report_dirs = filtered
             for report_dir in report_dirs:
                 run_reports = sorted((report_dir / "runs").glob("pilot-report-*.json"))
                 if run_reports:
@@ -657,8 +652,16 @@ def build_execute_args(args: argparse.Namespace, target: Path) -> list[str]:
     if getattr(args, "skip_init", False):
         command_args.append("--skip-init")
     verify_all = resolved_bool(args, target, "verify", False)
-    run_semgrep = resolved_bool(args, target, "run_semgrep", False) or verify_all
-    run_native_checks = resolved_bool(args, target, "run_native_checks", False) or verify_all
+
+    def resolve_check(key: str) -> bool:
+        # 显式 --run-x / --no-run-x 优先;未指定时才由 --verify 或 config 默认开启
+        explicit = getattr(args, key, None)
+        if explicit is not None:
+            return parse_bool(explicit, False)
+        return verify_all or resolved_bool(args, target, key, False)
+
+    run_semgrep = resolve_check("run_semgrep")
+    run_native_checks = resolve_check("run_native_checks")
     if run_semgrep:
         command_args.append("--run-semgrep")
     if run_native_checks:

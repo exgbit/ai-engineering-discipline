@@ -43,6 +43,7 @@ templates/
   ai-discipline-config.json # Target-project defaults for CLI behavior
   github-ai-discipline.yml  # GitHub Actions verify/report workflow
   agents-template.md        # Target-project AGENTS.md operating protocol
+  start-here.md             # Installed as docs/AI_ENGINEERING_START_HERE.md
   spec-template.md          # 需求 / 设计规格模板
   adr-template.md           # 架构决策记录模板
   pr-template.md            # AI 编程 PR 模板
@@ -53,12 +54,13 @@ data/
   methodology-signals.csv   # 方法论信号样本
   metrics-schema.csv        # 推广效果指标
   sample-adoption-metrics.csv # synthetic 示例指标
+  scorecard.md              # 采用度评分卡
 examples/
   project-memory.example.md # 项目记忆示例
   test-matrix.example.md    # 需求到测试映射示例
   loop-runbook.example.md   # Loop runbook 示例
 scripts/
-  ai_discipline.py          # Unified CLI: start/request/execute/verify/report/metrics/doctor
+  ai_discipline.py          # Unified CLI: start/request/run/execute/verify/report/config/metrics/doctor
   ai-discipline.sh          # macOS / Linux unified CLI wrapper
   ai-discipline.bat         # Windows unified CLI wrapper
   bootstrap.sh              # macOS / Linux 项目安装脚本
@@ -66,7 +68,13 @@ scripts/
   install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
   run_request.py            # Create managed request from task/risk/requirements
   execute_request.py        # Execute safe setup steps from current-request.md
+  init_project.py           # Create framework files in a target project
+  inspect_project.py        # Scan target stack/commands into docs/memory
+  doctor.py                 # Diagnose installation (used by /ai-doctor and CLI start)
   summarize_metrics.py      # 指标摘要脚本
+  sync_skills.py            # Sync top-level source into the two skill copies (CI-checked)
+  # 每个 run_request / execute_request / install_default_adapters 均有 .sh / .bat 包装
+  # scripts/ 是 skill 副本的唯一权威源,改动后须跑 sync_skills.py(见 CONTRIBUTING.md)
 skills/
   ai-engineering-discipline/ # Codex orchestrator skill
   ai-spec/
@@ -138,6 +146,7 @@ AGENTS.md
 .claude/skills/ai-verify/
 .claude/skills/ai-memory/
 .claude/commands/ai-start.md
+.claude/commands/ai-build.md
 .claude/commands/ai-request.md
 .claude/commands/ai-execute.md
 .claude/commands/ai-verify.md
@@ -161,17 +170,20 @@ docs/loops/bugfix-loop.md
 .github/workflows/ai-discipline.yml
 ```
 
-After install, read `docs/AI_ENGINEERING_START_HERE.md`, then open the target project in Claude Code and run:
+After install, open the target project in Claude Code. The simplest way to use the framework is one plain sentence — you do not need to learn task types, risk, presets, or the Spec/Loop/Verify/Memory workflow:
 
 ```text
-/ai-start
+/ai-build add a refund approval flow
 ```
 
-Claude Code slash commands are installed under `.claude/commands/`:
+`/ai-build` infers the task, writes and fills the spec, implements the change in small steps, and verifies it — talking to you in plain language the whole time. You can also just describe what you want in chat; the `ai-engineering-discipline` skill picks it up automatically.
+
+The remaining commands are the explicit/advanced entry points, installed under `.claude/commands/`:
 
 ```text
-/ai-start
-/ai-request --task feature --name "refund approval" --requirements docs/requirements/refund.md --risk medium
+/ai-start                                  # initialize / inspect the repo
+/ai-build <plain-language request>         # plain-sentence entry (recommended)
+/ai-request --task feature --name "..." --requirements docs/requirements/...  # explicit managed request
 /ai-execute
 /ai-verify
 /ai-doctor
@@ -285,6 +297,8 @@ ai-memory -> Mem0 + docs/memory
 
 This is the difference from using the four frameworks directly: the user does not decide when to run each tool or how to pass artifacts between them. The framework owns the sequence, files, and handoffs. See `framework/integrated-workflow.md`.
 
+Integration depth differs per layer, by design: Semgrep (Verify) is runtime-integrated and actually executed by `execute_request.py`; Spec Kit, LangGraph, and Mem0 are integrated through generated artifacts and agent guidance rather than direct invocation. See `framework/integration-levels.md` for the exact compatibility level of each layer.
+
 The managed request resolves low-level framework parameters from presets:
 
 ```text
@@ -320,6 +334,8 @@ python .claude/skills/ai-engineering-discipline/scripts/execute_request.py . --r
 ```
 
 Results are written to `docs/verify/verification-results.json` and `docs/verify/verification-results.md`. Semgrep raw JSON is saved as `docs/verify/semgrep-results.json` when Semgrep runs successfully. Native checks are limited to detected local test, lint, typecheck, and required build commands. The structured JSON includes `can_merge`, `required_checks`, `skipped_required_checks`, and `blocking_reasons`.
+
+Note: `execute_request.py` itself does not edit business code or install packages. But `--run-native-checks` (and the `verify`/`run --verify` paths) execute the target project's own `test` / `lint` / `typecheck` / `build` scripts, which may have side effects (e.g. `npm run build` can write files or hit the network). Only enable native checks for projects whose scripts you trust.
 
 For CI-style usage, add `--fail-on-verify-failure`; the command exits non-zero after results are written when the overall verification status is `blocked`.
 

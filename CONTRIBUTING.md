@@ -18,6 +18,19 @@ This project accepts contributions that improve the Spec / Verify / Memory frame
 - Prefer actionable checklists over abstract principles.
 - Do not include company secrets, private repository names, credentials, or customer data.
 
+## Source of Truth for Skill Copies
+
+The top-level `scripts/`, `presets/`, `templates/`, `examples/`, `claude-code-commands/`, `CLAUDE.md`, and `adapters/default-stack.json` are the single source of truth. The `claude-code-skills/` and `skills/` directories ship copies (installed into a target project's `.claude/` and `.codex/`), so never edit those copies by hand.
+
+After changing any source file, run:
+
+```bash
+python scripts/sync_skills.py        # regenerate skill copies
+python scripts/sync_skills.py --check # verify no drift (also enforced in CI)
+```
+
+`SKILL.md` is the only file allowed to differ per platform (`.claude` vs `.codex`); `sync_skills.py --check` lints it for cross-platform path leaks.
+
 ## Recommended PR Format
 
 - What changed?

@@ -1,0 +1,25 @@
+name: skill-sync-check
+
+# 防止 skill 副本(.claude / .codex 安装源)与顶层权威源漂移。
+# 改了 scripts/ 或同步范围内的资料后,必须先跑 `python scripts/sync_skills.py`。
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  sync-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Verify skill copies are in sync with the source of truth
+        run: python scripts/sync_skills.py --check
+      - name: Byte-compile all Python scripts
+        run: >-
+          python -m py_compile
+          scripts/*.py
+          claude-code-skills/ai-engineering-discipline/scripts/*.py
+          skills/ai-engineering-discipline/scripts/*.py

@@ -167,12 +167,16 @@ def main() -> int:
 
     checks = collect_checks(target)
     report = render_report(target, checks)
-    report_path = target / "docs" / "ai-engineering" / "doctor-report.md"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(GENERATED + "\n" + report, encoding="utf-8")
     print(report.rstrip())
     print()
-    print(f"wrote: {report_path}")
+    # 诊断默认不污染未初始化的项目:仅当 docs/ 已存在(项目已 init)时才落地报告
+    if (target / "docs").is_dir():
+        report_path = target / "docs" / "ai-engineering" / "doctor-report.md"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(GENERATED + "\n" + report, encoding="utf-8")
+        print(f"wrote: {report_path}")
+    else:
+        print("(skip report: docs/ not found; run init first)")
 
     if args.fail_on_error and any(item.status == "fail" for item in checks):
         return 1

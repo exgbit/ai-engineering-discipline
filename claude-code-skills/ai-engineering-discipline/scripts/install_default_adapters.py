@@ -203,6 +203,12 @@ def main() -> int:
                 statuses[layer_name] = status_for(layer)
                 if outcome.status == "failed" and statuses[layer_name] != "installed":
                     print(f"failed {layer_name}: {outcome.detail}")
+                elif outcome.status == "installed" and statuses[layer_name] != "installed":
+                    # 安装命令成功,但 console script 不在当前 shell PATH(常见于 pip --user / uv tool)
+                    print(
+                        f"note {layer_name}: install command succeeded but check still reports "
+                        f"'{statuses[layer_name]}'; the executable may need a new shell or PATH refresh."
+                    )
     else:
         print("Dry run only. Re-run with --execute to install missing adapters.")
 
