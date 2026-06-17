@@ -174,9 +174,18 @@ def parse_request(target: Path, request_path: Path) -> ManagedRequest:
 
 
 def is_framework_placeholder(path: Path, content: str) -> bool:
+    if GENERATED in content:
+        return False
     rel_path = "/".join(path.parts[-3:])
     if rel_path == "docs/verify/test-matrix.md":
-        return "| Requirement ID | Requirement | Unit Test | Integration Test | Manual / Release Check | Status |" in content
+        return (
+            "# Test Matrix Example" in content
+            or (
+                "| Requirement ID | Requirement | Unit Test | Integration Test | Manual / Release Check | Status |"
+                in content
+                and "| R1 |  |  |  |  | todo |" in content
+            )
+        )
     if "/docs/loops/" in "/" + "/".join(path.parts):
         return ("## Loop Name" in content and "Example:" in content) or (
             "# Bugfix Loop" in content and "Fix one well-scoped bug with reproduction" in content
@@ -191,8 +200,9 @@ def safe_write(path: Path, content: str, force: bool, actions: list[str]) -> Non
     body = GENERATED + "\n" + content.rstrip() + "\n"
     if path.exists() and not force:
         existing = path.read_text(encoding="utf-8")
-        if GENERATED not in existing and not is_framework_placeholder(path, existing):
-            actions.append(f"skip human file: {path}")
+        if not is_framework_placeholder(path, existing):
+            reason = "generated file" if GENERATED in existing else "human file"
+            actions.append(f"skip {reason}: {path}")
             return
     path.write_text(body, encoding="utf-8")
     actions.append(f"write: {path}")
@@ -585,7 +595,7 @@ def command_to_text(command: list[str]) -> str:
 
 def required_verify_checks(request: ManagedRequest) -> list[str]:
     verify = request.verify_params
-    checks: list[str] = []
+    checks: list[str] = ["impact_analysis", "regression_matrix"]
     if verify.get("native_tests"):
         checks.append("native_checks")
     if verify.get("require_build"):
@@ -603,6 +613,48 @@ def required_verify_checks(request: ManagedRequest) -> list[str]:
     return checks
 
 
+def markdown_section(text: str, heading: str) -> str:
+    pattern = rf"^## {re.escape(heading)}\s*$([\s\S]*?)(?=^## |\Z)"
+    match = re.search(pattern, text, flags=re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def section_is_complete(section: str) -> bool:
+    if not section:
+        return False
+    markers = [
+        "TBD",
+        "| Existing behavior identified from `docs/memory/module-map.md` |",
+        "| Affected modules | TBD |",
+        "| Public APIs / contracts | TBD |",
+        "- [ ]",
+    ]
+    return not any(marker in section for marker in markers)
+
+
+def impact_analysis_missing_parts(request: ManagedRequest) -> list[str]:
+    if not request.spec_path.exists():
+        return ["Spec file"]
+    text = request.spec_path.read_text(encoding="utf-8", errors="ignore")
+    missing = []
+    for heading in ["Impact Analysis", "Coupling Constraints", "Regression Plan"]:
+        if not section_is_complete(markdown_section(text, heading)):
+            missing.append(heading)
+    return missing
+
+
+def impact_analysis_complete(request: ManagedRequest) -> bool:
+    return not impact_analysis_missing_parts(request)
+
+
+def regression_matrix_complete(request: ManagedRequest) -> bool:
+    if not request.verify_matrix_path.exists():
+        return False
+    text = request.verify_matrix_path.read_text(encoding="utf-8", errors="ignore")
+    regression = markdown_section(text, "Regression Matrix")
+    return section_is_complete(regression)
+
+
 def verification_gate_details(
     request: ManagedRequest,
     semgrep: CommandResult | None,
@@ -612,6 +664,14 @@ def verification_gate_details(
     executed: list[dict[str, object]] = []
     skipped_required: list[str] = []
     blocking_reasons: list[str] = []
+
+    impact_missing = impact_analysis_missing_parts(request)
+    if impact_missing:
+        skipped_required.append("impact_analysis")
+        blocking_reasons.append(f"impact analysis incomplete: {', '.join(impact_missing)}")
+    if not regression_matrix_complete(request):
+        skipped_required.append("regression_matrix")
+        blocking_reasons.append("regression matrix incomplete")
 
     if semgrep:
         executed.append({"name": "semgrep", "required": "semgrep" in required, "status": semgrep.status})
@@ -980,11 +1040,15 @@ def update_test_matrix_with_results(
     if semgrep is None and not native:
         return
     matrix_path = request.verify_matrix_path
+    existing_regression = ""
     if matrix_path.exists():
         existing = matrix_path.read_text(encoding="utf-8")
         if GENERATED not in existing:
             actions.append(f"skip human file: {matrix_path}")
             return
+        candidate_regression = markdown_section(existing, "Regression Matrix")
+        if section_is_complete(candidate_regression):
+            existing_regression = candidate_regression
 
     status, reason = verification_rollup(semgrep, native)
     rows = []
@@ -1007,6 +1071,10 @@ def update_test_matrix_with_results(
             f"{md_cell(item.status)} | {md_cell(item.exit_code if item.exit_code is not None else '')} |"
         )
 
+    regression_section = existing_regression or f"""| Existing Behavior | Related Module / API | Regression Check | Required | Status |
+|---|---|---|---|---|
+| Existing behavior identified from `docs/memory/module-map.md` | TBD | TBD | yes | {status} |"""
+
     content = f"""# Test Matrix
 
 Request: `{request.name}`
@@ -1018,9 +1086,7 @@ Spec: `{rel(request.spec_path, target)}`
 
 ## Regression Matrix
 
-| Existing Behavior | Related Module / API | Regression Check | Required | Status |
-|---|---|---|---|---|
-| Existing behavior identified from `docs/memory/module-map.md` | TBD | TBD | yes | {status} |
+{regression_section}
 
 ## Verification Evidence
 
