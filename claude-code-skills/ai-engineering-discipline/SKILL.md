@@ -181,6 +181,7 @@ Before implementation:
 4. Read relevant files in `docs/specs/`, `docs/memory/`, and `docs/loops/`.
 5. For managed requests, run `scripts/execute_request.py` first so `current-request.md` becomes concrete artifacts.
 6. If verification flags are enabled, read `docs/verify/verification-results.json` as the structured evidence source.
+7. For existing projects, identify affected modules, coupling risks, compatibility constraints, and required regression checks before coding.
 
 During implementation:
 
@@ -194,6 +195,7 @@ After implementation:
 1. Use `ai-memory` to update memory only with real lessons, boundaries, or pitfalls.
 2. Produce PR evidence using `.github/pull_request_template.md`.
 3. Do not present generated explanations as verification evidence.
+4. Ensure the generated impact analysis and regression matrix are complete for already-developed codebases.
 
 ## Default Open-Source Adapters
 

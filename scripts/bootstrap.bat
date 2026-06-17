@@ -143,6 +143,7 @@ if exist "%DST%" if not "%FORCE%"=="1" (
   echo - Add project-specific architecture and coding rules here.
   echo - AI-generated code must include verification evidence before merge.
   echo - Repeated mistakes should be converted into memory entries or loop updates.
+  echo - Existing-project changes must include impact analysis and regression checks before implementation.
 ) > "%DST%"
 echo created: %DST%
 exit /b 0
@@ -156,9 +157,9 @@ if exist "%DST%" if not "%FORCE%"=="1" (
 (
   echo # Module Map
   echo.
-  echo ^| Module ^| Owner ^| Boundary ^|
-  echo ^|---^|---^|---^|
-  echo ^| TBD ^| TBD ^| Describe responsibility and forbidden dependencies ^|
+  echo ^| Module ^| Owner ^| Responsibility ^| Coupled With ^| Required Regression Checks ^| Boundary / Forbidden Dependencies ^|
+  echo ^|---^|---^|---^|---^|---^|---^|
+  echo ^| TBD ^| TBD ^| Describe responsibility ^| upstream/downstream modules, APIs, jobs, data stores ^| test command or manual check ^| describe forbidden dependencies ^|
 ) > "%DST%"
 echo created: %DST%
 exit /b 0

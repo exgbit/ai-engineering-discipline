@@ -197,6 +197,7 @@ For implementation work, enforce:
 Spec -> Loop -> Verify -> Memory
 ```
 
+- Treat existing projects as the default case. Before coding, map the current baseline, affected modules, coupling risks, compatibility constraints, and required regression checks.
 - If no spec exists, create one from `docs/specs/spec-template.md` before coding.
 - If no loop exists for the task type, create one from `docs/loops/loop-template.md`.
 - Use `docs/loops/bugfix-loop.md` for bug fixes with reproduction steps.
@@ -204,6 +205,7 @@ Spec -> Loop -> Verify -> Memory
 - Update memory only with durable lessons learned during the task.
 
 For managed requests, prefer `scripts/execute_request.py` before implementation. It converts `docs/ai-engineering/current-request.md` into concrete generated artifacts, so the agent does not need to reinterpret low-level framework parameters.
+The generated artifacts include impact analysis and regression matrices for already-developed codebases.
 
 If verification flags are enabled, treat `docs/verify/verification-results.json` as the structured evidence source and `docs/verify/verification-results.md` as the review summary.
 

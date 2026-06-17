@@ -133,12 +133,13 @@ fi
 write_file_if_missing "$TARGET_DIR/docs/memory/project-rules.md" "Project Rules" \
 "- Add project-specific architecture and coding rules here.
 - AI-generated code must include verification evidence before merge.
-- Repeated mistakes should be converted into memory entries or loop updates."
+- Repeated mistakes should be converted into memory entries or loop updates.
+- Existing-project changes must include impact analysis and regression checks before implementation."
 
 write_file_if_missing "$TARGET_DIR/docs/memory/module-map.md" "Module Map" \
-"| Module | Owner | Boundary |
-|---|---|---|
-| TBD | TBD | Describe responsibility and forbidden dependencies |"
+"| Module | Owner | Responsibility | Coupled With | Required Regression Checks | Boundary / Forbidden Dependencies |
+|---|---|---|---|---|---|
+| TBD | TBD | Describe responsibility | upstream/downstream modules, APIs, jobs, data stores | test command or manual check | describe forbidden dependencies |"
 
 write_file_if_missing "$TARGET_DIR/docs/memory/pitfalls.md" "Pitfalls" \
 "Record repeated bugs, failed assumptions, review findings, and incident lessons here.

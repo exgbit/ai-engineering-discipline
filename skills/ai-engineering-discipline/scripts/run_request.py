@@ -238,6 +238,17 @@ Created: {now}
 
 {req_lines}
 
+## Existing Project Baseline
+
+Use this request as a controlled change against an existing codebase.
+
+- Project scan: `docs/memory/project-scan.md`
+- Project rules: `docs/memory/project-rules.md`
+- Module map: `docs/memory/module-map.md`
+- Pitfalls: `docs/memory/pitfalls.md`
+
+Before implementation, identify affected modules, coupled behaviors, compatibility constraints, and required regression checks.
+
 ## Target Artifacts
 
 - Spec: `{spec_path.relative_to(target)}`

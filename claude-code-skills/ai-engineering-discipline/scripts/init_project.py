@@ -655,14 +655,15 @@ PROJECT_RULES = """# Project Rules
 - Add project-specific architecture and coding rules here.
 - AI-generated code must include verification evidence before merge.
 - Repeated mistakes should be converted into memory entries or loop updates.
+- Existing-project changes must include impact analysis and regression checks before implementation.
 """
 
 
 MODULE_MAP = """# Module Map
 
-| Module | Owner | Boundary |
-|---|---|---|
-| TBD | TBD | Describe responsibility and forbidden dependencies |
+| Module | Owner | Responsibility | Coupled With | Required Regression Checks | Boundary / Forbidden Dependencies |
+|---|---|---|---|---|---|
+| TBD | TBD | Describe responsibility | upstream/downstream modules, APIs, jobs, data stores | test command or manual check | describe forbidden dependencies |
 """
 
 
@@ -756,27 +757,27 @@ jobs:
 """
 
 
-FILES = {
-    ".ai-discipline.json": AI_DISCIPLINE_CONFIG,
-    "CLAUDE.md": CLAUDE_MD,
-    "AGENTS.md": AGENTS_MD,
-    "docs/AI_ENGINEERING_START_HERE.md": START_HERE,
-    "docs/specs/spec-template.md": SPEC_TEMPLATE,
-    "docs/verify/verify-checklist.md": VERIFY_CHECKLIST,
-    "docs/verify/test-matrix.md": TEST_MATRIX,
-    "docs/memory/memory-entry.md": MEMORY_ENTRY,
-    "docs/memory/project-rules.md": PROJECT_RULES,
-    "docs/memory/module-map.md": MODULE_MAP,
-    "docs/memory/pitfalls.md": PITFALLS,
-    "docs/loops/loop-template.md": LOOP_TEMPLATE,
-    "docs/loops/bugfix-loop.md": BUGFIX_LOOP,
-    ".github/pull_request_template.md": PR_TEMPLATE,
-    ".github/workflows/ai-discipline.yml": AI_DISCIPLINE_WORKFLOW,
-    ".claude/commands/ai-start.md": AI_START_COMMAND,
-    ".claude/commands/ai-request.md": AI_REQUEST_COMMAND,
-    ".claude/commands/ai-execute.md": AI_EXECUTE_COMMAND,
-    ".claude/commands/ai-verify.md": AI_VERIFY_COMMAND,
-    ".claude/commands/ai-doctor.md": AI_DOCTOR_COMMAND,
+FILE_SPECS = {
+    ".ai-discipline.json": ("templates/ai-discipline-config.json", AI_DISCIPLINE_CONFIG),
+    "CLAUDE.md": ("CLAUDE.md", CLAUDE_MD),
+    "AGENTS.md": ("templates/agents-template.md", AGENTS_MD),
+    "docs/AI_ENGINEERING_START_HERE.md": ("templates/start-here.md", START_HERE),
+    "docs/specs/spec-template.md": ("templates/spec-template.md", SPEC_TEMPLATE),
+    "docs/verify/verify-checklist.md": ("templates/verify-checklist.md", VERIFY_CHECKLIST),
+    "docs/verify/test-matrix.md": ("examples/test-matrix.example.md", TEST_MATRIX),
+    "docs/memory/memory-entry.md": ("templates/memory-entry.md", MEMORY_ENTRY),
+    "docs/memory/project-rules.md": (None, PROJECT_RULES),
+    "docs/memory/module-map.md": (None, MODULE_MAP),
+    "docs/memory/pitfalls.md": (None, PITFALLS),
+    "docs/loops/loop-template.md": ("templates/loop-template.md", LOOP_TEMPLATE),
+    "docs/loops/bugfix-loop.md": ("examples/loop-runbook.example.md", BUGFIX_LOOP),
+    ".github/pull_request_template.md": ("templates/pr-template.md", PR_TEMPLATE),
+    ".github/workflows/ai-discipline.yml": ("templates/github-ai-discipline.yml", AI_DISCIPLINE_WORKFLOW),
+    ".claude/commands/ai-start.md": ("claude-code-commands/ai-start.md", AI_START_COMMAND),
+    ".claude/commands/ai-request.md": ("claude-code-commands/ai-request.md", AI_REQUEST_COMMAND),
+    ".claude/commands/ai-execute.md": ("claude-code-commands/ai-execute.md", AI_EXECUTE_COMMAND),
+    ".claude/commands/ai-verify.md": ("claude-code-commands/ai-verify.md", AI_VERIFY_COMMAND),
+    ".claude/commands/ai-doctor.md": ("claude-code-commands/ai-doctor.md", AI_DOCTOR_COMMAND),
 }
 
 SKILL_NAMES = ["ai-engineering-discipline", "ai-spec", "ai-loop", "ai-verify", "ai-memory"]
@@ -788,6 +789,27 @@ def write_file(path: Path, content: str, force: bool) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content.rstrip() + "\n", encoding="utf-8")
     return "write"
+
+
+def source_text(current_skill_root: Path, rel_path: str | None, fallback: str) -> str:
+    if not rel_path:
+        return fallback
+    repo_root = current_skill_root.parent.parent
+    candidates = [
+        repo_root / rel_path,
+        current_skill_root / "references" / rel_path,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.read_text(encoding="utf-8")
+    return fallback
+
+
+def framework_files(current_skill_root: Path) -> dict[str, str]:
+    return {
+        target_path: source_text(current_skill_root, source_path, fallback)
+        for target_path, (source_path, fallback) in FILE_SPECS.items()
+    }
 
 
 def skill_source_parent(current_skill_root: Path, flavor: str) -> Path | None:
@@ -850,8 +872,9 @@ def main() -> int:
     if not target.exists() or not target.is_dir():
         raise SystemExit(f"Target project does not exist: {target}")
 
+    current_skill_root = Path(__file__).resolve().parents[1]
     counts = {"write": 0, "skip": 0}
-    for rel_path, content in FILES.items():
+    for rel_path, content in framework_files(current_skill_root).items():
         result = write_file(target / rel_path, content, args.force)
         counts[result] += 1
         print(f"{result}: {target / rel_path}")

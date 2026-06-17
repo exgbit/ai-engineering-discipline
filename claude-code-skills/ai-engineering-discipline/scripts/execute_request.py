@@ -235,6 +235,19 @@ def md_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ").strip()
 
 
+def memory_artifact_rows(target: Path) -> str:
+    rows = []
+    for rel_path, purpose in [
+        ("docs/memory/project-scan.md", "Detected stack, directories, and candidate commands"),
+        ("docs/memory/project-rules.md", "Durable architecture and coding rules"),
+        ("docs/memory/module-map.md", "Module ownership, boundaries, and coupling"),
+        ("docs/memory/pitfalls.md", "Known failure patterns and regression risks"),
+    ]:
+        status = "found" if (target / rel_path).exists() else "missing"
+        rows.append(f"| `{rel_path}` | {md_cell(purpose)} | {status} |")
+    return "\n".join(rows)
+
+
 def write_requirements_index(target: Path, request: ManagedRequest, force: bool, actions: list[str]) -> Path:
     index = target / "docs" / "specs" / "requirements-index.md"
     lines = [
@@ -301,6 +314,14 @@ Complete `{request.task}` work for `{request.name}` within `{request.risk or "un
 
 {chr(10).join(f"- `{rel(source, target)}`" for source in request.requirements) if request.requirements else "- None"}
 
+## Existing Project Baseline
+
+Read these memory artifacts before planning changes. Treat missing files as setup gaps, not permission to guess.
+
+| Artifact | Purpose | Status |
+|---|---|---|
+{memory_artifact_rows(target)}
+
 ## Imported Requirement Excerpts
 
 {chr(10).join(excerpts)}
@@ -317,6 +338,25 @@ Complete `{request.task}` work for `{request.name}` within `{request.risk or "un
 - Spec mode: `{request.spec_params.get("mode", request.task)}`
 - Implementation should be planned in small, reviewable steps.
 
+## Impact Analysis
+
+Complete this before editing code in an existing project.
+
+| Area | Impact | Evidence / Files | Risk |
+|---|---|---|---|
+| Affected modules | TBD | `docs/memory/module-map.md` | TBD |
+| Public APIs / contracts | TBD | route, RPC, CLI, event, or package references | TBD |
+| Data model / migrations | TBD | schema, migration, cache, queue, or storage references | TBD |
+| Background jobs / integrations | TBD | scheduler, webhook, worker, external service references | TBD |
+| Backward compatibility | Existing behavior must not regress without explicit approval. | existing tests, callers, docs | high |
+
+## Coupling Constraints
+
+- [ ] Identify upstream callers that depend on the changed behavior.
+- [ ] Identify downstream services, modules, data stores, queues, or jobs touched by the change.
+- [ ] Confirm which existing behavior must remain unchanged.
+- [ ] Record any cross-module boundary change that needs human review.
+
 ## Edge Cases
 
 - Empty or malformed input:
@@ -330,6 +370,14 @@ Complete `{request.task}` work for `{request.name}` within `{request.risk or "un
 | Requirement ID | Test Type | Test File / Case | Status |
 |---|---|---|---|
 {chr(10).join(f"| R{idx} | pending | TBD | todo |" for idx, _ in enumerate(request.requirements or [Path('none')], start=1))}
+
+## Regression Plan
+
+Map existing behavior that could break because of this change.
+
+| Existing Behavior | Related Module / API | Regression Check | Required |
+|---|---|---|---|
+| TBD | TBD | TBD | yes |
 
 ## Open Questions
 
@@ -359,16 +407,19 @@ Allowed:
 
 - Update generated spec, loop, verify, and memory planning artifacts.
 - Implement code only after spec and loop are accepted.
+- Make one scoped change at a time, with explicit affected modules and regression checks.
 
 Forbidden:
 
 - Destructive operations.
 - Credential, billing, permission, or production changes.
 - Unverified claims of success.
+- Opportunistic refactors outside the affected-module set.
 
 Requires approval:
 
 - Architecture changes across module boundaries.
+- Backward-incompatible API, data, or event changes.
 - Retrying beyond `{loop.get("max_retries", "preset")}` attempts.
 - Human gate: `{loop.get("human_gate", "on_conflict")}`.
 
@@ -377,6 +428,7 @@ Requires approval:
 | State | Description | Next States |
 |---|---|---|
 | load_context | Read request, spec, requirements, and memory | plan, stop |
+| map_impact | Identify affected modules, coupling, and regression scope | plan, escalate, stop |
 | plan | Produce small implementation plan | implement, stop |
 | implement | Make one scoped change | verify, stop |
 | verify | Run required gates and collect evidence | implement, escalate, done |
@@ -386,7 +438,9 @@ Requires approval:
 ## Verify Gates
 
 - [ ] Spec exists and maps requirements.
+- [ ] Impact analysis names affected modules and coupling risks.
 - [ ] Test matrix exists.
+- [ ] Regression matrix covers existing behavior that must not break.
 - [ ] Native checks run when enabled by preset.
 - [ ] Semgrep runs when enabled and available.
 - [ ] Memory update is evidence-backed.
@@ -396,11 +450,13 @@ Requires approval:
 Success:
 
 - Acceptance criteria are verified with evidence.
+- Required regression checks pass or have approved waivers.
 - No unresolved P0 risk remains.
 
 Failure:
 
 - Requirements conflict.
+- Affected-module ownership or coupling is unclear.
 - Verification cannot run.
 - Work exceeds retry or approval policy.
 
@@ -428,9 +484,19 @@ def write_verify_artifacts(target: Path, request: ManagedRequest, force: bool, a
 Request: `{request.name}`
 Spec: `{rel(request.spec_path, target)}`
 
+## Requirement Traceability
+
 | Requirement ID | Requirement | Unit Test | Integration Test | Manual / Release Check | Status |
 |---|---|---|---|---|---|
 {chr(10).join(rows)}
+
+## Regression Matrix
+
+Use this section for existing projects. Add concrete checks before implementation if the change touches coupled modules.
+
+| Existing Behavior | Related Module / API | Regression Check | Required | Status |
+|---|---|---|---|---|
+| Existing behavior identified from `docs/memory/module-map.md` | TBD | TBD | yes | todo |
 """
     safe_write(request.verify_matrix_path, matrix, force, actions)
 
@@ -450,10 +516,13 @@ Spec: `{rel(request.spec_path, target)}`
 - Build required: `{verify.get("require_build", False)}`
 - Security scan: `{verify.get("require_security_scan", False)}`
 - Link/source consistency: `{verify.get("require_link_check", verify.get("require_source_consistency", False))}`
+- Impact analysis completed: `required`
+- Regression matrix completed for affected existing behavior: `required`
 
 ## Evidence Log
 
 - Pending. Run implementation checks after code changes.
+- Pending. Fill affected modules and regression checks before implementation.
 - Optional structured results: `docs/verify/verification-results.json`
 - Optional readable results: `docs/verify/verification-results.md`
 """
@@ -476,6 +545,14 @@ def write_memory_plan(target: Path, request: ManagedRequest, force: bool, action
 - Project rule: only if this request reveals a durable rule.
 - Module map: only if ownership or dependency boundaries are confirmed.
 - Pitfall: only if a real failure pattern is observed.
+- Regression rule: only if this request proves a check must always run for a coupled module.
+
+## Existing Project Update Checklist
+
+- [ ] Update `module-map.md` if affected module boundaries or coupling changed.
+- [ ] Update `project-rules.md` if the request revealed a durable implementation rule.
+- [ ] Update `pitfalls.md` if verification found a repeatable failure pattern.
+- [ ] Keep temporary observations in `memory-candidates.md` until reviewed.
 
 ## Evidence Required
 
@@ -939,6 +1016,12 @@ Spec: `{rel(request.spec_path, target)}`
 |---|---|---|---|---|---|
 {chr(10).join(rows)}
 
+## Regression Matrix
+
+| Existing Behavior | Related Module / API | Regression Check | Required | Status |
+|---|---|---|---|---|
+| Existing behavior identified from `docs/memory/module-map.md` | TBD | TBD | yes | {status} |
+
 ## Verification Evidence
 
 Status: `{status}`
@@ -996,6 +1079,7 @@ Created: {now}
 | State | Status | Evidence |
 |---|---|---|
 | load_context | done | `docs/ai-engineering/current-request.md` |
+| map_impact | pending | Impact analysis in `{rel(request.spec_path, target)}` |
 | plan | done | `{rel(request.spec_path, target)}`, `{rel(request.loop_path, target)}` |
 | implement | pending | Safe executor does not edit business code. |
 | verify | {verify_state} | `docs/verify/verification-results.json` when present |

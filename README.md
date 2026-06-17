@@ -302,6 +302,8 @@ For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset d
 Requirement paths may be absolute, relative to your current shell directory, or relative to the target project.
 `run_request.py` imports external requirement files into the target project; `execute_request.py` only reads requirement sources that are already inside the target project.
 
+For existing projects, every managed request is treated as a controlled change against the current codebase. The generated spec includes existing-project baseline artifacts, impact analysis, coupling constraints, and a regression plan. The verify matrix includes a regression matrix so new work is checked against behavior that must not break.
+
 Then execute the safe setup steps:
 
 ```bash
