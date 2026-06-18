@@ -64,6 +64,17 @@ copy_file() {
     echo "skip existing: $dst"
     return
   fi
+  # --force 覆盖用户可能自著的文件前,内容有变化才备份一份 .bak
+  if [[ -e "$dst" && "$FORCE" == "1" ]]; then
+    case "$(basename "$dst")" in
+      CLAUDE.md|AGENTS.md|.ai-discipline.json)
+        if ! cmp -s "$src" "$dst"; then
+          cp "$dst" "$dst.bak"
+          echo "backup: $dst.bak"
+        fi
+        ;;
+    esac
+  fi
   mkdir -p "$(dirname "$dst")"
   cp "$src" "$dst"
   echo "installed: $dst"

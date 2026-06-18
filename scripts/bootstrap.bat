@@ -102,8 +102,20 @@ if exist "%DST%" if not "%FORCE%"=="1" (
   echo skip existing: %DST%
   exit /b 0
 )
+if exist "%DST%" if "%FORCE%"=="1" call :maybe_backup "%SRC%" "%DST%"
 copy /Y "%SRC%" "%DST%" >nul
 echo installed: %DST%
+exit /b 0
+
+:maybe_backup
+rem --force 覆盖用户可能自著的文件前,内容有变化才备份一份 .bak
+set "BN=%~nx2"
+if /i not "%BN%"=="CLAUDE.md" if /i not "%BN%"=="AGENTS.md" if /i not "%BN%"==".ai-discipline.json" exit /b 0
+fc /b "%~1" "%~2" >nul 2>&1
+if errorlevel 1 (
+  copy /Y "%~2" "%~2.bak" >nul
+  echo backup: %~2.bak
+)
 exit /b 0
 
 :copy_dir
