@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "default-ai-engineering-stack",
-  "description": "The framework needs no external tools to run. The only optional one is Semgrep, the security-scan gate in the Verify step. Spec / Loop / Memory are implemented by the framework's own Markdown templates and the AI agent.",
+  "description": "The framework needs no external tools to run. The only one it actually calls is Semgrep (the optional Verify security-scan gate). The optional `impact` layer is a code knowledge-graph MCP that the AGENT (not the framework) uses to drive impact analysis. Spec / Loop / Memory are implemented by the framework's own Markdown templates and the AI agent.",
   "layers": {
     "verify": {
       "framework": "Semgrep",
@@ -11,6 +11,18 @@
       "install": {
         "preferred": ["python", "-m", "pip", "install", "--user", "semgrep"],
         "check": ["semgrep", "--version"]
+      }
+    },
+    "impact": {
+      "framework": "code knowledge-graph MCP (e.g. codebase-memory-mcp-pro)",
+      "repo": "https://github.com/win4r/codebase-memory-mcp-pro",
+      "runtime_integrated": false,
+      "agent_integrated": true,
+      "why": "Optional. When configured as a Claude Code MCP server, the AGENT (not the framework) uses it in the Spec impact-analysis step: detect_changes (git diff -> affected symbols) + explore (transitive blast radius) fill the Impact Analysis table from the graph instead of by hand, and decide which interfaces need tests before coding. The framework never calls the binary. If absent, the agent falls back to manual impact analysis plus the framework's own symbol->test mapping and blind spots.",
+      "mcp": {
+        "add": ["claude", "mcp", "add", "codebase-memory", "-s", "user", "--", "codebase-memory-mcp"],
+        "tools": ["index_repository", "detect_changes", "explore", "trace_path", "query_graph"],
+        "check": ["codebase-memory-mcp", "--version"]
       }
     }
   }

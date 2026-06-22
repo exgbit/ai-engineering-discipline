@@ -190,8 +190,12 @@ def main() -> int:
             statuses[layer_name] = "not selected"
             continue
         if not layer.get("runtime_integrated", False):
-            # 风格参考层(Spec/Loop/Memory):框架不调用它们,无需安装
-            statuses[layer_name] = "reference-only (not used by the framework)"
+            if layer.get("agent_integrated", False):
+                # agent 经 MCP 用的可选层(impact):框架不调,但 agent 用,别误标 reference-only
+                statuses[layer_name] = "optional MCP (used by the agent, not the framework)"
+            else:
+                # 风格参考层(Spec/Loop/Memory):框架不调用它们,无需安装
+                statuses[layer_name] = "reference-only (not used by the framework)"
             continue
         statuses[layer_name] = status_for(layer)
 

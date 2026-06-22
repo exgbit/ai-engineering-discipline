@@ -368,6 +368,8 @@ Read these memory artifacts before planning changes. Treat missing files as setu
 
 Complete this before editing code in an existing project.
 
+If a code knowledge-graph MCP is configured (the `impact` layer in `adapters/default-stack.json`, e.g. codebase-memory), fill this table from its blast radius instead of guessing: ensure the repo is indexed (`index_repository`), then run `detect_changes` (git diff -> affected symbols) and `explore` (transitive callers / depth) for this change, and list the affected interfaces / functions / callers it returns — cite the tool + symbol names as Evidence. If no such MCP is configured, fill it by reading the code (current behavior).
+
 | Area | Impact | Evidence / Files | Risk |
 |---|---|---|---|
 | Affected modules | TBD | `docs/memory/module-map.md` | TBD |

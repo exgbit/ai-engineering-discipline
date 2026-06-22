@@ -69,6 +69,29 @@ def command_content_check(target: Path, name: str, required_text: str) -> Check:
     return Check("warn", item, f"missing expected text: {required_text}")
 
 
+def mcp_impact_check(target: Path) -> Check:
+    """可选:代码知识图谱 MCP 是否配置(给 agent 做影响分析用)。永不 fail——它是可选增强,
+    没配只回退到手填影响分析,不算安装问题。"""
+    import json
+    import shutil
+    item = "knowledge-graph MCP (impact analysis)"
+    for cfg in (target / ".mcp.json", target / ".claude" / "mcp.json"):
+        if not cfg.is_file():
+            continue
+        try:
+            data = json.loads(cfg.read_text(encoding="utf-8", errors="ignore"))
+        except (OSError, ValueError):
+            continue
+        servers = data.get("mcpServers") or data.get("servers") or {}
+        if isinstance(servers, dict) and any(
+            "memory" in str(name).lower() or "graph" in str(name).lower() for name in servers
+        ):
+            return Check("ok", item, "MCP configured — graph-driven impact analysis available")
+    if shutil.which("codebase-memory-mcp") or shutil.which("codebase-memory"):
+        return Check("ok", item, "binary on PATH — graph-driven impact analysis available")
+    return Check("warn", item, "optional; not configured — impact analysis is hand-filled (not a problem)")
+
+
 def collect_checks(target: Path) -> list[Check]:
     checks = [
         Check("ok", "python", f"{sys.executable} ({sys.version.split()[0]})"),
@@ -114,6 +137,7 @@ def collect_checks(target: Path) -> list[Check]:
         file_check(target, "docs/ai-engineering/current-request.md", required=False),
         file_check(target, "docs/adapters/default-stack.md", required=False),
         file_check(target, "docs/memory/project-scan.md", required=False),
+        mcp_impact_check(target),
     ]
     return checks
 
