@@ -1139,7 +1139,7 @@ def write_user_summary(
         lines.append("- Status: NOT DONE YET — needs fixing:")
         lines.extend(f"  - {humanize_blocking(b)}" for b in blocking)
     elif not coverage:
-        lines.append("- Status: DONE — tests pass; some optional checks were skipped (listed below).")
+        lines.append("- Status: Works — tests pass and nothing is blocking; some optional checks were skipped (listed below).")
     else:
         lines.append("- Status: DONE — everything required was checked and passed.")
 
