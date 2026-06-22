@@ -39,8 +39,8 @@ This framework centralizes those decisions:
 ## Current Limitations
 
 - Semgrep and native-check results are written to structured verification artifacts and merged back into generated `test-matrix.md`; exact test-case mapping still needs project-specific evidence.
-- The test gate checks that a changed test references the changed code's symbols (functions/classes), which blocks empty or unrelated tests; it does not yet run coverage to confirm the changed lines are actually executed.
-- Presets cover common task/risk combinations, not every company policy.
+- The test gate checks that a changed test references the changed code's symbols (functions/classes), which blocks empty or unrelated tests; it does not yet run coverage to confirm the changed lines are actually executed. The symbol heuristic is fail-open in a few cases (reported as `uncovered`, not silently passed): changes with no extractable symbol (pure module-level constants), non-git targets, and same-named functions across files. It is an advisory discipline layer, not a tamper-proof merge gate.
+- Presets cover common task/risk combinations, not every company policy. Only the preset's `verify.*` fields (and `spec.mode` / loop settings) are consumed by the deterministic scripts to drive required checks and artifacts; the other `spec.*` / `memory.*` fields (e.g. `require_rollback`, `require_edge_cases`) are advisory hints for the AI agent reading the request — the script does not tailor the generated spec from them.
 - `execute_request.py` intentionally avoids business code changes and destructive operations by default.
 - The framework provides discipline and gates; the actual code understanding, spec content, and judgement are done by the AI agent, not the framework.
 

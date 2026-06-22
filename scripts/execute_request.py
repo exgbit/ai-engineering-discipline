@@ -754,8 +754,17 @@ def _match_symbol(line):
 
 
 def _nearest_def_above(lines, idx):
-    """从 lines[idx] 向上(含)找最近的 def/class/赋值定义,返回符号名。"""
-    for i in range(min(idx, len(lines) - 1), -1, -1):
+    """找改动行所属的符号。装饰器行(@...)属于其下方的函数,向下找;否则向上找最近的 def
+    —— 否则改装饰器/签名上方的行会被误归到上一个函数。"""
+    if not lines:
+        return None
+    start = min(max(idx, 0), len(lines) - 1)
+    if lines[start].lstrip().startswith("@"):  # 改动落在装饰器上 → 归属下方的函数
+        for j in range(start, min(start + 12, len(lines))):
+            sym = _match_symbol(lines[j])
+            if sym:
+                return sym
+    for i in range(start, -1, -1):
         sym = _match_symbol(lines[i])
         if sym:
             return sym
@@ -783,26 +792,31 @@ def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
             diff_text = result.stdout
         except (OSError, subprocess.SubprocessError):
             diff_text = ""
-        if diff_text.strip():
-            for line in diff_text.splitlines():
-                if line.startswith("@@"):
-                    # @@ -a,b +c,d @@ :取新文件改动起始行 c,在改后文件里向上找最近的 def
-                    m = re.search(r"\+(\d+)", line)
-                    if m and content_lines:
-                        idx = min(max(int(m.group(1)) - 1, 0), len(content_lines) - 1)
-                        sym = _nearest_def_above(content_lines, idx)
-                        if sym:
-                            symbols.add(sym)
-                elif line.startswith("+") and not line.startswith("+++"):
-                    sym = _match_symbol(line[1:])
+        file_syms: set[str] = set()
+        has_hunk = False
+        for line in diff_text.splitlines():
+            if line.startswith("@@"):
+                has_hunk = True
+                # @@ -a,b +c,d @@ :取新文件改动起始行 c,在改后文件里向上找最近的 def
+                m = re.search(r"\+(\d+)", line)
+                if m and content_lines:
+                    idx = min(max(int(m.group(1)) - 1, 0), len(content_lines) - 1)
+                    sym = _nearest_def_above(content_lines, idx)
                     if sym:
-                        symbols.add(sym)
-            continue
-        # 无 diff(untracked / 新文件):读全文提取定义符号
-        for line in content_lines:
-            sym = _match_symbol(line)
-            if sym:
-                symbols.add(sym)
+                        file_syms.add(sym)
+            elif line.startswith("+") and not line.startswith("+++"):
+                sym = _match_symbol(line[1:])
+                if sym:
+                    file_syms.add(sym)
+        # 回退全文提取的两种情形:① 无 diff(untracked/新文件);② git 把改动当作 binary
+        # (含 null 字节的代码文件,只输出 "Binary files differ"、无 hunk)。有 hunk 却提
+        # 不到符号(纯模块级改动)不回退,留给门禁标 uncovered(见 verification_gate_details)。
+        if not diff_text.strip() or (not has_hunk and not file_syms):
+            for line in content_lines:
+                sym = _match_symbol(line)
+                if sym:
+                    file_syms.add(sym)
+        symbols |= file_syms
     return symbols
 
 
@@ -1524,6 +1538,7 @@ def write_verification_results(
         actions.append(f"skip run-data: {exc}")
     from build_test_index import refresh_test_index  # 局部 import:避免与本模块的循环依赖
     refresh_test_index(target, actions)
+    return gate_details
 
 
 def verification_rollup(semgrep: CommandResult | None, native: list[CommandResult]) -> tuple[str, str]:
@@ -1895,7 +1910,7 @@ def main() -> int:
                 )
             )
             actions.append("verify native: skipped no recognized commands")
-    write_verification_results(target, request, semgrep_result, native_results, actions)
+    gate = write_verification_results(target, request, semgrep_result, native_results, actions)
     update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
     write_loop_run_log(target, request, semgrep_result, native_results, actions)
     write_memory_candidates(target, request, semgrep_result, native_results, actions)
@@ -1906,8 +1921,10 @@ def main() -> int:
     for action in actions:
         print(action)
     if args.fail_on_verify_failure:
-        # 退出码必须反映完整门禁(测试配套 / impact / 回归),而不只是 semgrep/native 进程状态
-        gate = verification_gate_details(request, semgrep_result, native_results)
+        # 退出码必须反映完整门禁(测试配套 / impact / 回归),而不只是 semgrep/native 进程状态;
+        # 复用 write_verification_results 已算的 gate,不重复跑 git diff
+        if gate is None:  # 没跑 semgrep/native(无可验证结果)→ 现算一次
+            gate = verification_gate_details(request, semgrep_result, native_results)
         if not gate["can_merge"]:
             return 1
     return 0

@@ -16,6 +16,7 @@ RATE_FIELDS = {
     "loop_success_rate",
     "loop_escalation_rate",
     "loop_budget_overrun_rate",
+    "loop_retry_rate",
 }
 
 

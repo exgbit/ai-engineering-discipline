@@ -162,14 +162,22 @@ def copy_requirements(requirements: list[Path], target: Path) -> list[Path]:
         if source.is_dir():
             dst_root = unique_copy_root((dest_dir / source.name).resolve(), reserved_destinations)
             reserved_destinations.add(dst_root)
+            skipped: list[str] = []
             for item in sorted(source.rglob("*")):
-                if item.is_file() and item.suffix.lower() in REQUIREMENT_EXTS:
+                if not item.is_file():
+                    continue
+                if item.suffix.lower() in REQUIREMENT_EXTS:
                     rel = item.relative_to(source)
                     dst = dst_root / rel
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(item, dst)
                     reserved_destinations.add(dst.resolve())
                     copied.append(dst)
+                elif item.suffix:
+                    skipped.append(item.suffix.lower())
+            if skipped:
+                exts = ", ".join(sorted(set(skipped)))
+                print(f"skip (unsupported requirement file types, not imported): {exts}", file=sys.stderr)
         else:
             dst = unique_copy_destination((dest_dir / source.name).resolve(), reserved_destinations)
             dst.parent.mkdir(parents=True, exist_ok=True)
