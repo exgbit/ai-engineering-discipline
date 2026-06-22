@@ -1356,12 +1356,12 @@ def write_memory_candidates(
         "- Evidence required before accepting: changed module ownership or dependency boundary.",
         "",
     ]
-    if status == "blocked" or gate_details["blocking_reasons"] or gate_details["skipped_required_checks"]:
+    if gate_details["blocking_reasons"]:
         candidate_sections.extend([
             "## Candidate Pitfall",
             "",
             "- Status: `needs-review`",
-            f"- Context: `{request.name}` verification did not produce merge-ready evidence.",
+            f"- Context: `{request.name}` verification had blocking issues.",
             f"- Problem: {reason}",
             f"- Blocking reasons: `{', '.join(gate_details['blocking_reasons']) if gate_details['blocking_reasons'] else 'none'}`",
             f"- Skipped required checks: `{', '.join(gate_details['skipped_required_checks']) if gate_details['skipped_required_checks'] else 'none'}`",

@@ -29,13 +29,14 @@ Otherwise follow the `ai-engineering-discipline` skill's "Default Entry: One Pla
 
 4. **Read the code, then fill the spec yourself.** First read the source files the request touches (the scripts do not analyze code). Then open the generated `docs/specs/<slug>.md` and complete its `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding — give a real Impact Analysis and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
 5. **Implement in small steps, with tests** following the generated loop. For feature/bugfix/refactor work you MUST add or update tests — the verification gate blocks a code change that ships without a matching test change. State the plan in one plain sentence before editing code, then proceed unless the user objects.
-6. **Verify**:
+6. **Verify, then refresh the report** (so the pilot report isn't left showing a stale pre-verify snapshot):
 
    ```bash
    "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks
+   "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
    ```
 
-   Read `docs/verify/verification-results.json` for `can_merge` and blocking reasons.
+   Read `docs/verify/verification-results.json` for `can_merge` / `coverage_complete` / blocking reasons.
 7. **Report to the user in plain language only**: one short message — what you built, whether the tests pass, and anything not covered (e.g. "added delete-by-title with a test; all tests pass; the security scan isn't installed so it didn't run"). Do NOT show the user the generated spec/loop/verify/memory files, `TBD` placeholders, or terms like `can_merge`/`coverage_complete` — those are internal. Never present "done" as fully verified when `coverage_complete` is false. Update memory only with durable lessons.
 
 **If the request points to a folder of requirements** (many `.md` files and/or images, screenshots, diagrams, PDFs), pass that whole folder to `--requirements <folder>` instead of writing a new file in step 2. Then read every Markdown file and **visually inspect every image/PDF** in it to extract the requirements before filling the spec — image/PDF content is understood visually; the scripts only track the files.
