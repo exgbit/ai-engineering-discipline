@@ -686,7 +686,7 @@ def regression_matrix_complete(request: ManagedRequest) -> bool:
 HUMAN_CHECKS = {"regression_tests", "failing_test_or_trace", "manual_validation", "source_consistency"}
 
 # 这些任务类型改了代码就必须配套测试(实质质量门禁,而非扫 markdown)
-TASKS_NEEDING_TESTS = {"feature", "bugfix", "refactor"}
+TASKS_NEEDING_TESTS = {"feature", "bugfix", "refactor", "migration"}
 
 _CODE_EXTS = (
     ".py", ".go", ".js", ".ts", ".jsx", ".tsx", ".java", ".rs", ".rb",
@@ -735,23 +735,36 @@ def is_code_file(path: str) -> bool:
     return path.endswith(_CODE_EXTS)
 
 
-# 从改动代码里提取被定义的符号(函数/类/方法名),用于核对测试是否真的引用了改动
+# 从改动代码里提取被定义的符号(函数/类/方法名),用于核对测试是否真的引用了改动。
+# 既认 def/class/func 等关键字定义,也认 const/let NAME = (...) => 这类 JS/TS
+# 箭头函数 / 函数表达式 / 类表达式的赋值式定义(否则前端代码会整体绕过门禁)。
 _SYMBOL_DEF_RE = re.compile(
-    r"^[+\s]*(?:export\s+)?(?:public\s+|private\s+|static\s+)*(?:async\s+)?"
-    r"(?:def|class|func|function|fn|interface|type|struct|trait|impl)\s+([A-Za-z_][A-Za-z0-9_]*)"
+    r"^[+\s]*(?:export\s+)?(?:default\s+)?(?:public\s+|private\s+|static\s+)*(?:async\s+)?"
+    r"(?:def|class|func|function|fn|interface|type|struct|trait|impl)\s+([A-Za-z_$][\w$]*)"
+)
+_SYMBOL_ASSIGN_RE = re.compile(
+    r"^[+\s]*(?:export\s+)?(?:default\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*"
+    r"(?:async\s+)?(?:\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>|function\b|class\b)"
 )
 
 
+def _match_symbol(line):
+    match = _SYMBOL_DEF_RE.match(line) or _SYMBOL_ASSIGN_RE.match(line)
+    return match.group(1) if match else None
+
+
 def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
-    """改动涉及的符号(函数/类名)。用 git diff --function-context(-W) 把改动扩展到整个
-    函数,从中提取 def/class —— 这样"只改已有函数体、不改签名"的 bugfix/refactor 也能
-    归因到所属函数,而不是只认新增的定义行(否则改函数体会提不到任何符号、门禁形同虚设)。"""
+    """改动涉及的符号(函数/类名)。用 git diff --unified=0 精确定位改动:
+    - 从 hunk 头部的函数上下文(@@ -a,b +c,d @@ <所属函数签名>)提取"只改函数体"所属的函数;
+    - 从新增行(+)提取新增的定义。
+    用 unified=0 而非 -W:-W 会把改动 hunk 相邻、但未改动的函数也带进来,造成
+    "测了相邻没改的函数也算覆盖"的假阴性。"""
     symbols: set[str] = set()
     for f in code_files:
         diff_text = ""
         try:
             result = subprocess.run(
-                ["git", "-C", str(target), "diff", "HEAD", "-W", "--", f],
+                ["git", "-C", str(target), "diff", "HEAD", "--unified=0", "--", f],
                 capture_output=True, text=True, timeout=30,
             )
             diff_text = result.stdout
@@ -759,20 +772,22 @@ def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
             diff_text = ""
         if diff_text.strip():
             for line in diff_text.splitlines():
-                # 跳过文件头/hunk 头/删除行(删除的符号不算"改动涉及");
-                # 保留 + 行与上下文行(以空格开头),它们含被改动函数的签名
-                if line.startswith(("+++", "---", "@@", "-")):
-                    continue
-                match = _SYMBOL_DEF_RE.match(line)
-                if match:
-                    symbols.add(match.group(1))
+                if line.startswith("@@"):
+                    # @@ -a,b +c,d @@ <改动所属的函数签名(git 的 hunk funcname)>
+                    sym = _match_symbol(line.split("@@")[-1])
+                    if sym:
+                        symbols.add(sym)
+                elif line.startswith("+") and not line.startswith("+++"):
+                    sym = _match_symbol(line[1:])
+                    if sym:
+                        symbols.add(sym)
             continue
         # 无 diff(untracked / 新文件):读全文提取定义符号
         try:
             for line in (target / f).read_text(encoding="utf-8", errors="ignore").splitlines():
-                match = _SYMBOL_DEF_RE.match(line)
-                if match:
-                    symbols.add(match.group(1))
+                sym = _match_symbol(line)
+                if sym:
+                    symbols.add(sym)
         except OSError:
             pass
     return symbols
