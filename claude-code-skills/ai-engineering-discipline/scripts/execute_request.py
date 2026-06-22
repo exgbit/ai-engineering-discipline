@@ -753,14 +753,27 @@ def _match_symbol(line):
     return match.group(1) if match else None
 
 
+def _nearest_def_above(lines, idx):
+    """从 lines[idx] 向上(含)找最近的 def/class/赋值定义,返回符号名。"""
+    for i in range(min(idx, len(lines) - 1), -1, -1):
+        sym = _match_symbol(lines[i])
+        if sym:
+            return sym
+    return None
+
+
 def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
-    """改动涉及的符号(函数/类名)。用 git diff --unified=0 精确定位改动:
-    - 从 hunk 头部的函数上下文(@@ -a,b +c,d @@ <所属函数签名>)提取"只改函数体"所属的函数;
+    """改动涉及的符号(函数/类名)。用 git diff --unified=0 精确定位改动行:
+    - 对每个 hunk,按新文件起始行号在改动后的文件里**向上找最近的 def**(含缩进的类方法);
     - 从新增行(+)提取新增的定义。
-    用 unified=0 而非 -W:-W 会把改动 hunk 相邻、但未改动的函数也带进来,造成
-    "测了相邻没改的函数也算覆盖"的假阴性。"""
+    不用 git 自带的 hunk funcname:它只认顶格声明,会把缩进的类方法误归到外层 class
+    (于是任何 import 该类的测试都白送通过)。也不用 -W:-W 会把相邻未改函数带进来。"""
     symbols: set[str] = set()
     for f in code_files:
+        try:
+            content_lines = (target / f).read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            content_lines = []
         diff_text = ""
         try:
             result = subprocess.run(
@@ -773,23 +786,23 @@ def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
         if diff_text.strip():
             for line in diff_text.splitlines():
                 if line.startswith("@@"):
-                    # @@ -a,b +c,d @@ <改动所属的函数签名(git 的 hunk funcname)>
-                    sym = _match_symbol(line.split("@@")[-1])
-                    if sym:
-                        symbols.add(sym)
+                    # @@ -a,b +c,d @@ :取新文件改动起始行 c,在改后文件里向上找最近的 def
+                    m = re.search(r"\+(\d+)", line)
+                    if m and content_lines:
+                        idx = min(max(int(m.group(1)) - 1, 0), len(content_lines) - 1)
+                        sym = _nearest_def_above(content_lines, idx)
+                        if sym:
+                            symbols.add(sym)
                 elif line.startswith("+") and not line.startswith("+++"):
                     sym = _match_symbol(line[1:])
                     if sym:
                         symbols.add(sym)
             continue
         # 无 diff(untracked / 新文件):读全文提取定义符号
-        try:
-            for line in (target / f).read_text(encoding="utf-8", errors="ignore").splitlines():
-                sym = _match_symbol(line)
-                if sym:
-                    symbols.add(sym)
-        except OSError:
-            pass
+        for line in content_lines:
+            sym = _match_symbol(line)
+            if sym:
+                symbols.add(sym)
     return symbols
 
 
