@@ -1251,6 +1251,113 @@ def write_user_summary(
     actions.append(f"write: {path}")
 
 
+def record_run_data(
+    target: Path,
+    request: ManagedRequest,
+    gate_details: dict[str, object],
+    native: list[CommandResult],
+    actions: list[str],
+) -> None:
+    """把每次验证的统计 + 问题持续沉淀到目标项目的 data/:
+    - data/run-stats.jsonl :每次一行机器可读统计(时间/task/can_merge/覆盖/测试数/问题计数);
+    - data/issues-log.md   :有阻断/未覆盖/需人工时,追加成人可读台账。
+    框架被用得越多,data/ 里的真实数据和问题台账就越全。"""
+    blocking = [str(x) for x in (gate_details.get("blocking_reasons") or [])]
+    uncovered = [str(x) for x in (gate_details.get("uncovered_checks") or [])]
+    needs_human = [str(x) for x in (gate_details.get("needs_human_checks") or [])]
+    case_passed, case_failed, _ = count_test_cases(native)
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    data_dir = target / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    stat = {
+        "ts": now,
+        "task": request.task,
+        "name": request.name,
+        "risk": request.risk,
+        "can_merge": bool(gate_details.get("can_merge")),
+        "coverage_complete": bool(gate_details.get("coverage_complete")),
+        "tests_passed": case_passed,
+        "tests_failed": case_failed,
+        "blocking_count": len(blocking),
+        "uncovered_count": len(uncovered),
+        "needs_human_count": len(needs_human),
+    }
+    stats_path = data_dir / "run-stats.jsonl"
+    with stats_path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(stat, ensure_ascii=False) + "\n")
+    actions.append(f"append: {stats_path}")
+
+    issues = (
+        [("阻断", b) for b in blocking]
+        + [("未覆盖", u) for u in uncovered]
+        + [("需人工", h) for h in needs_human]
+    )
+    if issues:
+        log_path = data_dir / "issues-log.md"
+        if not log_path.exists():
+            log_path.write_text(
+                "# 问题台账\n\n_框架每次验证遇到的阻断 / 未覆盖 / 需人工项,自动追加。_\n",
+                encoding="utf-8",
+            )
+        entry = [f"\n## {now} · {request.task} · {request.name}"]
+        entry.extend(f"- [{kind}] {detail}" for kind, detail in issues)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write("\n".join(entry) + "\n")
+        actions.append(f"append: {log_path}")
+
+    _write_run_summary(data_dir, actions)
+
+
+def _write_run_summary(data_dir: Path, actions: list[str]) -> None:
+    """从 run-stats.jsonl 重算汇总,写 data/run-summary.md(每次验证后刷新)。"""
+    rows = []
+    try:
+        for line in (data_dir / "run-stats.jsonl").read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    except (OSError, ValueError):
+        return
+    if not rows:
+        return
+    n = len(rows)
+    mergeable = sum(1 for r in rows if r.get("can_merge"))
+    covered = sum(1 for r in rows if r.get("coverage_complete"))
+    with_blocking = sum(1 for r in rows if r.get("blocking_count", 0) > 0)
+    tp = sum(int(r.get("tests_passed", 0)) for r in rows)
+    tf = sum(int(r.get("tests_failed", 0)) for r in rows)
+    by_task: dict[str, int] = {}
+    for r in rows:
+        key = str(r.get("task", "?"))
+        by_task[key] = by_task.get(key, 0) + 1
+
+    def pct(x):
+        return f"{(100 * x / n):.0f}%"
+
+    lines = [
+        "# 运行数据汇总",
+        "",
+        f"_由框架自动统计自 `run-stats.jsonl`,每次验证后刷新。共 {n} 次运行。_",
+        "",
+        f"- 可合并 (can_merge): {mergeable}/{n} ({pct(mergeable)})",
+        f"- 完全覆盖 (coverage_complete): {covered}/{n} ({pct(covered)})",
+        f"- 有阻断问题的运行: {with_blocking}/{n} ({pct(with_blocking)})",
+        f"- 测试用例累计: {tp} passed, {tf} failed",
+        "",
+        "## 按任务类型",
+        "",
+        "| task | 次数 |",
+        "|---|---|",
+    ]
+    for task, cnt in sorted(by_task.items(), key=lambda kv: -kv[1]):
+        lines.append(f"| {task} | {cnt} |")
+    summary_path = data_dir / "run-summary.md"
+    summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    actions.append(f"write: {summary_path}")
+
+
 def write_verification_results(
     target: Path,
     request: ManagedRequest,
@@ -1369,6 +1476,7 @@ def write_verification_results(
             actions.append(f"update: {plan}")
 
     write_user_summary(target, request, gate_details, native, actions)
+    record_run_data(target, request, gate_details, native, actions)
 
 
 def verification_rollup(semgrep: CommandResult | None, native: list[CommandResult]) -> tuple[str, str]:

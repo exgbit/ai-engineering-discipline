@@ -183,8 +183,13 @@ python $S config .          # 查看当前配置
 | `docs/verify/test-matrix.md` | 需求 ↔ 测试映射 + 回归矩阵 |
 | `docs/memory/module-map.md` 等 | 模块边界、踩坑、项目规则 |
 | `docs/reports/pilot-report.md` | 试点汇总报告(给团队看趋势) |
+| `data/run-stats.jsonl` | **每次验证的统计**(累积,机器可读) |
+| `data/run-summary.md` | 运行数据汇总(自动刷新) |
+| `data/issues-log.md` | 问题台账(阻断 / 未覆盖 / 需人工) |
 
 > 普通使用你只需关心 `SUMMARY.md`,其余是给工程/审计/团队复盘用的。
+
+> **`data/` 是框架自动累积的实证数据**:每次验证后,框架把这次的统计(`run-stats.jsonl`)、汇总(`run-summary.md`)和遇到的问题(`issues-log.md`)追加/刷新到目标项目的 `data/`。框架被用得越多,数据和问题台账越全——这是给"想用真实数据看框架表现"准备的。注意区分"门禁机制有效性"与"生产 ROI"。
 
 ---
 
