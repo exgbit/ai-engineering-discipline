@@ -11,10 +11,10 @@ task + risk + requirement path
 The framework resolves:
 
 ```text
-Spec Kit mode and required spec sections
-LangGraph loop, retries, checkpoint, human gate
-Semgrep config, severity, native checks
-Mem0/local memory write behavior and tags
+spec mode and required spec sections
+loop runbook, retries, checkpoint, human gate
+Semgrep config, severity, native checks (Semgrep is the only optional external tool)
+memory write behavior and tags
 ```
 
 Example:

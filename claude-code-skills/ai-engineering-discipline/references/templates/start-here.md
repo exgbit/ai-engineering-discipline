@@ -2,7 +2,7 @@
 
 This project uses one integrated AI engineering workflow.
 
-You do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately. Use the orchestrator through a managed request.
+You do not need to learn any external framework. The framework provides its own Spec / Loop / Memory templates and uses one optional external tool (Semgrep, the security scan); just use the orchestrator through a managed request.
 
 ## Unified CLI
 
@@ -72,10 +72,10 @@ External requirement files are imported by `run_request.py`; `execute_request.py
 ## What Happens Behind the Scenes
 
 ```text
-Spec   -> ai-spec   -> GitHub Spec Kit
-Loop   -> ai-loop   -> LangGraph
-Verify -> ai-verify -> Semgrep + native tests
-Memory -> ai-memory -> Mem0 + local docs/memory
+Spec   -> ai-spec   -> framework's own spec template, filled by the agent
+Loop   -> ai-loop   -> framework's own loop runbook
+Verify -> ai-verify -> native tests + optional Semgrep security scan
+Memory -> ai-memory -> local docs/memory
 ```
 
 The framework decides when each step runs and how artifacts move between steps.

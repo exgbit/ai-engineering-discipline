@@ -285,9 +285,9 @@ The user should not provide low-level framework parameters. This preset resolves
 Use `ai-engineering-discipline` as the only user-facing workflow.
 
 1. Run `execute_request.py` first to convert this request into concrete spec, loop, verify, and memory artifacts.
-2. Use the resolved Spec parameters; do not ask the user for Spec Kit flags unless blocked.
+2. Use the resolved Spec parameters; do not ask the user for low-level spec parameters unless blocked.
 3. Use `ai-spec` internally to import the requirement sources and create/update the target spec.
-4. Use the resolved Loop parameters; do not ask the user for LangGraph/state-machine flags unless blocked.
+4. Use the resolved Loop parameters; do not ask the user for low-level loop parameters unless blocked.
 5. Use `ai-loop` internally to finalize the selected loop.
 6. Do not implement code until the spec and loop are ready.
 7. If `Execute implementation now` is `true`, implement in small scoped steps.

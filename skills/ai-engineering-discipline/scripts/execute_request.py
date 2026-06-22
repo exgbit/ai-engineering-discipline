@@ -742,31 +742,39 @@ _SYMBOL_DEF_RE = re.compile(
 )
 
 
-def _added_lines(target: Path, path: str) -> list[str]:
-    """该文件相对基线新增/改动的行:已跟踪取 git diff 的 + 行,新文件取全文。"""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(target), "diff", "HEAD", "--unified=0", "--", path],
-            capture_output=True, text=True, timeout=30,
-        )
-        added = [ln[1:] for ln in result.stdout.splitlines() if ln.startswith("+") and not ln.startswith("+++")]
-        if added:
-            return added
-    except (OSError, subprocess.SubprocessError):
-        pass
-    try:
-        return (target / path).read_text(encoding="utf-8", errors="ignore").splitlines()
-    except OSError:
-        return []
-
-
 def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
+    """改动涉及的符号(函数/类名)。用 git diff --function-context(-W) 把改动扩展到整个
+    函数,从中提取 def/class —— 这样"只改已有函数体、不改签名"的 bugfix/refactor 也能
+    归因到所属函数,而不是只认新增的定义行(否则改函数体会提不到任何符号、门禁形同虚设)。"""
     symbols: set[str] = set()
     for f in code_files:
-        for line in _added_lines(target, f):
-            match = _SYMBOL_DEF_RE.match(line)
-            if match:
-                symbols.add(match.group(1))
+        diff_text = ""
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(target), "diff", "HEAD", "-W", "--", f],
+                capture_output=True, text=True, timeout=30,
+            )
+            diff_text = result.stdout
+        except (OSError, subprocess.SubprocessError):
+            diff_text = ""
+        if diff_text.strip():
+            for line in diff_text.splitlines():
+                # 跳过文件头/hunk 头/删除行(删除的符号不算"改动涉及");
+                # 保留 + 行与上下文行(以空格开头),它们含被改动函数的签名
+                if line.startswith(("+++", "---", "@@", "-")):
+                    continue
+                match = _SYMBOL_DEF_RE.match(line)
+                if match:
+                    symbols.add(match.group(1))
+            continue
+        # 无 diff(untracked / 新文件):读全文提取定义符号
+        try:
+            for line in (target / f).read_text(encoding="utf-8", errors="ignore").splitlines():
+                match = _SYMBOL_DEF_RE.match(line)
+                if match:
+                    symbols.add(match.group(1))
+        except OSError:
+            pass
     return symbols
 
 
