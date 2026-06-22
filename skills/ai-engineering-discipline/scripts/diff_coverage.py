@@ -5,6 +5,9 @@
 
 零依赖回退:覆盖率工具没装、或语言不支持 → `available=False`,门禁标 uncovered(不静默
 通过),绝不强依赖任何外部工具。覆盖率数据写到临时目录(COVERAGE_FILE 等),不污染目标项目。
+
+已知代价:diff-coverage 会带覆盖率再跑一遍测试,与 native check 的测试各自独立——同一次
+execute 内测试跑两遍,有副作用的集成测试会执行两次。这是 opt-in 的性能取舍(默认不开)。
 """
 import json
 import os
@@ -39,6 +42,14 @@ def changed_line_numbers(target: Path, code_files: list[str]) -> dict[str, set[i
                 count = int(m.group(2)) if m.group(2) is not None else 1
                 for ln in range(start, start + count):
                     lines.add(ln)
+        if not lines:
+            # untracked / 新文件:git diff HEAD 无 hunk → 整文件行号视作改动行(交叉时
+            # & executable 会过滤掉非可执行行;与 changed_code_symbols 的回退一致)
+            try:
+                n = len((target / f).read_text(encoding="utf-8", errors="ignore").splitlines())
+                lines = set(range(1, n + 1))
+            except OSError:
+                pass
         if lines:
             result[f] = lines
     return result
@@ -58,7 +69,8 @@ def _rel(path: str, target: Path) -> str:
             return os.path.relpath(path, str(target)).replace(os.sep, "/")
     except ValueError:
         pass
-    return path.replace(os.sep, "/").lstrip("./")
+    p = path.replace(os.sep, "/")
+    return p[2:] if p.startswith("./") else p
 
 
 # 每个收集器返回 {relpath: (executed_lines:set, executable_lines:set)} 或 (None, reason)
@@ -71,7 +83,9 @@ def _coverage_python(target: Path):
         test_mod = "pytest" if shutil.which("pytest") else "unittest"
         run_cmd = ["coverage", "run", "-m", "pytest"] if test_mod == "pytest" \
             else ["coverage", "run", "-m", "unittest", "discover"]
-        _run(run_cmd, target, env=env)
+        run_result = _run(run_cmd, target, env=env)
+        if run_result is None or run_result.returncode != 0:
+            return None, "tests did not pass (coverage not trusted)"
         if not (Path(td) / "cov.data").exists():
             return None, "coverage produced no data"
         jpath = Path(td) / "cov.json"
@@ -132,7 +146,9 @@ def _coverage_go(target: Path):
         return None, "go not installed"
     with tempfile.TemporaryDirectory() as td:
         prof = Path(td) / "cover.out"
-        _run(["go", "test", "-coverprofile=" + str(prof), "./..."], target)
+        run_result = _run(["go", "test", "-coverprofile=" + str(prof), "./..."], target)
+        if run_result is None or run_result.returncode != 0:
+            return None, "go test did not pass (coverage not trusted)"
         if not prof.exists():
             return None, "go test produced no coverage profile"
         return _parse_go_coverprofile(prof.read_text(encoding="utf-8", errors="ignore")), "go cover"
@@ -164,7 +180,9 @@ def _coverage_js(target: Path):
     else:
         return None, "no js coverage tool (c8/nyc) installed"
     with tempfile.TemporaryDirectory() as td:
-        _run([a.replace("{out}", td) for a in runner], target)
+        run_result = _run([a.replace("{out}", td) for a in runner], target)
+        if run_result is None or run_result.returncode != 0:
+            return None, "js tests did not pass (coverage not trusted)"
         final = Path(td) / "coverage-final.json"
         if not final.exists():
             alt = target / "coverage" / "coverage-final.json"
@@ -212,18 +230,31 @@ def _coverage_java(target: Path):
     reports = list(target.rglob("jacoco.xml"))
     if not reports:
         return None, "no jacoco.xml produced (is the jacoco plugin configured?)"
-    try:
-        return _parse_jacoco(reports[0].read_text(encoding="utf-8", errors="ignore")), "jacoco"
-    except ET.ParseError:
+    merged: dict = {}  # 多模块工程每个 module 一个 jacoco.xml,合并所有,别只取第一个
+    for rep in reports:
+        try:
+            part = _parse_jacoco(rep.read_text(encoding="utf-8", errors="ignore"))
+        except ET.ParseError:
+            continue
+        for k, (ex, exe) in part.items():
+            mex, mexe = merged.get(k, (set(), set()))
+            merged[k] = (mex | ex, mexe | exe)
+    if not merged:
         return None, "jacoco.xml parse error"
+    return merged, "jacoco"
 
 
 def _match_path(covered: dict, f: str):
-    """覆盖率报告的路径可能带 module / 绝对 / package 前缀;用后缀匹配回退。"""
+    """覆盖率报告的路径可能带 module / 绝对 / package 前缀;用**按路径段边界**的后缀匹配回退,
+    取最长匹配避免歧义(否则 foobar.go 会误匹配 bar.go,把别的文件覆盖率张冠李戴)。"""
+    cf = "/" + f
+    best = None
     for k, v in covered.items():
-        if k.endswith("/" + f) or f.endswith("/" + k) or k.endswith(f) or f.endswith(k):
-            return v
-    return None
+        ck = "/" + k
+        if ck.endswith(cf) or cf.endswith(ck):
+            if best is None or len(k) > best[0]:
+                best = (len(k), v)
+    return best[1] if best else None
 
 
 def diff_coverage_result(target: Path, code_files: list[str]) -> dict:
@@ -242,7 +273,14 @@ def diff_coverage_result(target: Path, code_files: list[str]) -> dict:
     cov = 0
     for f, lines in changed.items():
         info = covered.get(f) or _match_path(covered, f)
-        executed, executable = info if info else (set(), set())
+        if info is None:
+            # 改动文件完全不在覆盖率报告里 → 没有任何测试执行过它(常见:全新未测文件)。
+            # 不能算"已覆盖":整文件的改动行都记为未覆盖(粗略高估,但方向对,不静默放行)。
+            miss = sorted(lines)
+            total += len(miss)
+            uncovered[f] = miss
+            continue
+        executed, executable = info
         # 只看改动行里的**可执行**行(注释/空行/纯声明不算),避免假 gap
         changed_exec = lines & executable
         total += len(changed_exec)

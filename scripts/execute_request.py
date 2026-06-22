@@ -1951,8 +1951,8 @@ def main() -> int:
     if args.fail_on_verify_failure:
         # 退出码必须反映完整门禁(测试配套 / impact / 回归),而不只是 semgrep/native 进程状态;
         # 复用 write_verification_results 已算的 gate,不重复跑 git diff
-        if gate is None:  # 没跑 semgrep/native(无可验证结果)→ 现算一次
-            gate = verification_gate_details(request, semgrep_result, native_results)
+        if gate is None:  # 没跑 semgrep/native(无可验证结果)→ 现算一次(带上 diff_cov)
+            gate = verification_gate_details(request, semgrep_result, native_results, diff_cov)
         if not gate["can_merge"]:
             return 1
     return 0
