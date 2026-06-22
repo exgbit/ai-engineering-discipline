@@ -6,7 +6,7 @@ Codex 从 .codex/skills 运行时调用),所以副本的存在是运行时硬需
 "副本",而是"副本靠人手同步导致的漂移":顶层为唯一权威源,副本由本工具单向生成。
 
 权威源(框架顶层):
-  scripts/                     8 个核心 .py(见 SCRIPT_FILES)
+  scripts/                     9 个核心 .py(见 SCRIPT_FILES)
   presets/                     *.json
   templates/ examples/ claude-code-commands/
   CLAUDE.md  adapters/default-stack.json
@@ -111,6 +111,27 @@ def planned_pairs(skill: Path) -> list[tuple[Path, Path]]:
     return pairs
 
 
+def orphan_files(skill: Path) -> list[Path]:
+    """副本里存在、但顶层源已无对应的文件(孤儿:源端删除/改名后副本残留)。只查"应当全等"
+    的受管范围:SCRIPT_FILES 的 scripts/*.py 和 SRC_DRIVEN_DIRS 的整目录。DST_DRIVEN
+    (templates/examples 是精选子集)与副本独有文件(SKILL.md / references/operation.md / agents/)不算。"""
+    orphans: list[Path] = []
+    scripts_dir = skill / "scripts"
+    if scripts_dir.is_dir():
+        for dst_file in sorted(scripts_dir.glob("*.py")):
+            if dst_file.name not in SCRIPT_FILES:
+                orphans.append(dst_file)
+    for dst_dir_rel, src_dir_rel in SRC_DRIVEN_DIRS.items():
+        dst_dir = skill / dst_dir_rel
+        src_dir = ROOT / src_dir_rel
+        if not dst_dir.is_dir():
+            continue
+        for dst_file in sorted(dst_dir.rglob("*")):
+            if dst_file.is_file() and not (src_dir / dst_file.relative_to(dst_dir)).exists():
+                orphans.append(dst_file)
+    return orphans
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="只校验,有漂移则 exit 1")
@@ -134,6 +155,15 @@ def main() -> int:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)
                 updated.append(label)
+
+        # 孤儿:副本多出、顶层源已无的文件(否则源端删除/改名后副本静默残留,--check 假绿)
+        for orphan in orphan_files(skill):
+            label = f"{orphan.relative_to(ROOT)} (orphan: 顶层源已无对应)"
+            if args.check:
+                drift.append(label)
+            else:
+                orphan.unlink()
+                updated.append(f"remove orphan: {orphan.relative_to(ROOT)}")
 
         skill_md = skill / "SKILL.md"
         if skill_md.exists():
