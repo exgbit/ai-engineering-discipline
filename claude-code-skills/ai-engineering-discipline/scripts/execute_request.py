@@ -921,7 +921,11 @@ def verification_gate_details(
                 )
             else:
                 symbols = changed_code_symbols(repo, code_changed)
-                if tests_reference_symbols(repo, test_changed, symbols):
+                if not symbols:
+                    # 改动不含可提取的函数/类符号(如纯模块级赋值/配置)→ 无法静态核实测试
+                    # 是否覆盖;不静默放行,降级为未覆盖(coverage 不全,但不误拦)
+                    uncovered_checks.append("test-coverage (changed code has no extractable symbol to match tests against)")
+                elif tests_reference_symbols(repo, test_changed, symbols):
                     test_evidence_ok = True
                 else:
                     test_evidence_ok = False
@@ -1082,7 +1086,7 @@ def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[
     if (target / "pyproject.toml").exists() or (target / "requirements.txt").exists() or (target / "pytest.ini").exists():
         # 优先 pytest(若项目用 pytest 或本机已装),否则回退标准库 unittest(总能跑)
         if (target / "pytest.ini").exists() or shutil.which("pytest"):
-            commands.append(("python:pytest", ["pytest"]))
+            commands.append(("python:pytest", [sys.executable, "-m", "pytest"]))
         else:
             commands.append(("python:unittest", [sys.executable, "-m", "unittest", "discover"]))
 
@@ -1347,12 +1351,17 @@ def _write_run_summary(data_dir: Path, actions: list[str]) -> None:
     """从 run-stats.jsonl 重算汇总,写 data/run-summary.md(每次验证后刷新)。"""
     rows = []
     try:
-        for line in (data_dir / "run-stats.jsonl").read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    except (OSError, ValueError):
+        lines = (data_dir / "run-stats.jsonl").read_text(encoding="utf-8").splitlines()
+    except OSError:
         return
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:  # 跳过损坏的半行(进程中断/并发 append 写坏),不让一行卡死整份汇总
+            rows.append(json.loads(line))
+        except ValueError:
+            continue
     if not rows:
         return
     n = len(rows)
@@ -1509,7 +1518,10 @@ def write_verification_results(
             actions.append(f"update: {plan}")
 
     write_user_summary(target, request, gate_details, native, actions)
-    record_run_data(target, request, gate_details, native, actions)
+    try:  # data 沉淀是 nice-to-have,失败只记 skip,绝不拖垮验证主流程
+        record_run_data(target, request, gate_details, native, actions)
+    except Exception as exc:  # noqa: BLE001
+        actions.append(f"skip run-data: {exc}")
     from build_test_index import refresh_test_index  # 局部 import:避免与本模块的循环依赖
     refresh_test_index(target, actions)
 
@@ -1756,11 +1768,6 @@ These are candidate memory writes only. Review before copying anything into `pro
     safe_write(path, content, force=True, actions=actions)
 
 
-def has_verify_failure(semgrep: CommandResult | None, native: list[CommandResult]) -> bool:
-    status, _ = verification_rollup(semgrep, native)
-    return status == "blocked"
-
-
 def write_blocked_report(target: Path, request_path: Path, reason: str) -> Path:
     report = target / "docs" / "ai-engineering" / "execution-report.md"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1898,8 +1905,11 @@ def main() -> int:
     print(f"report: {report}")
     for action in actions:
         print(action)
-    if args.fail_on_verify_failure and has_verify_failure(semgrep_result, native_results):
-        return 1
+    if args.fail_on_verify_failure:
+        # 退出码必须反映完整门禁(测试配套 / impact / 回归),而不只是 semgrep/native 进程状态
+        gate = verification_gate_details(request, semgrep_result, native_results)
+        if not gate["can_merge"]:
+            return 1
     return 0
 
 

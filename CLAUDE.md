@@ -195,6 +195,7 @@ When asked to "implement", "fix", "refactor", or "build":
 When installed into a target project, prefer these Claude Code commands over free-form setup prompts:
 
 - `/ai-start`: initialize and inspect the repository.
+- `/ai-build <plain-language request>`: the one-sentence entry — infers the task and runs the full Spec/Loop/Verify/Memory flow. Prefer this for "implement / fix / refactor" asks.
 - `/ai-request --task feature --name "..." --requirements docs/requirements/...`: create a managed request.
 - `/ai-execute`: generate safe spec, loop, verify, memory, and execution artifacts.
 - `/ai-verify`: run explicit verification and write structured results.

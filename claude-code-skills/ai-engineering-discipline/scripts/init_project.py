@@ -531,6 +531,18 @@ Read `docs/ai-engineering/current-request.md` and `docs/ai-engineering/execution
 """
 
 
+AI_BUILD_COMMAND = """# AI Build (plain-language entry)
+
+Turn the user's one-sentence request into a finished, verified change using the
+`ai-engineering-discipline` skill's "Default Entry: One Plain Sentence" flow:
+infer the task (feature / bugfix / refactor / migration / docs), capture the
+requirement, run `ai_discipline.py run .`, read the code and fill the spec
+yourself, implement in small steps with tests, verify, then report in plain
+language only. Never make the user learn task types, presets, or Spec/Loop/
+Verify/Memory. See the installed skill's SKILL.md for the full flow.
+"""
+
+
 AI_EXECUTE_COMMAND = """# AI Engineering Execute
 
 Execute the current managed request safely.
@@ -773,6 +785,7 @@ FILE_SPECS = {
     ".github/pull_request_template.md": ("templates/pr-template.md", PR_TEMPLATE),
     ".github/workflows/ai-discipline.yml": ("templates/github-ai-discipline.yml", AI_DISCIPLINE_WORKFLOW),
     ".claude/commands/ai-start.md": ("claude-code-commands/ai-start.md", AI_START_COMMAND),
+    ".claude/commands/ai-build.md": ("claude-code-commands/ai-build.md", AI_BUILD_COMMAND),
     ".claude/commands/ai-request.md": ("claude-code-commands/ai-request.md", AI_REQUEST_COMMAND),
     ".claude/commands/ai-execute.md": ("claude-code-commands/ai-execute.md", AI_EXECUTE_COMMAND),
     ".claude/commands/ai-verify.md": ("claude-code-commands/ai-verify.md", AI_VERIFY_COMMAND),

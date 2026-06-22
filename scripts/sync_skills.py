@@ -6,7 +6,7 @@ Codex 从 .codex/skills 运行时调用),所以副本的存在是运行时硬需
 "副本",而是"副本靠人手同步导致的漂移":顶层为唯一权威源,副本由本工具单向生成。
 
 权威源(框架顶层):
-  scripts/                     7 个核心 .py(见 SCRIPT_FILES)
+  scripts/                     8 个核心 .py(见 SCRIPT_FILES)
   presets/                     *.json
   templates/ examples/ claude-code-commands/
   CLAUDE.md  adapters/default-stack.json

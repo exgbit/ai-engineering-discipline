@@ -7,3 +7,9 @@ __pycache__/
 .venv/
 dist/
 build/
+
+# 框架自举(把自身当 target 跑)时 data/ 下产生的运行产物,不提交(curated 数据文件照常提交)
+/data/run-stats.jsonl
+/data/run-summary.md
+/data/issues-log.md
+/data/test-index-history.jsonl

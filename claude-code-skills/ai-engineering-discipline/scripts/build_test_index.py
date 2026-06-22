@@ -64,6 +64,8 @@ def _iter_files(target: Path):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
         for n in names:
             rel = str((Path(root) / n).relative_to(target)).replace(os.sep, "/")
+            if not is_code_file(rel):
+                continue  # 只按代码文件计数,避免 assets/数据文件把真正的代码挤出 MAX_FILES
             files.append(rel)
             if len(files) >= MAX_FILES:
                 return files, True

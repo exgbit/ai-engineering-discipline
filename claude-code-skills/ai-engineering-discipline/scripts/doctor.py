@@ -96,6 +96,7 @@ def collect_checks(target: Path) -> list[Check]:
         skill_script_check(target, "doctor.py"),
         skill_script_check(target, "install_default_adapters.py"),
         command_check(target, "ai-start"),
+        command_check(target, "ai-build"),
         command_check(target, "ai-request"),
         command_check(target, "ai-execute"),
         command_check(target, "ai-verify"),
