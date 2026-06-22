@@ -103,6 +103,10 @@ Memory → 把规则 / 边界 / 踩坑写回 docs/memory/
 
 框架的 Spec / Loop / Memory 模板在风格上参考了 GitHub Spec Kit、LangGraph、Mem0,但**框架不调用它们,也不需要安装**——它们只是模板的风格参照。唯一在运行期真正调用的外部工具是 Semgrep(Verify 步的安全扫描,可选)。本项目独立,与上述项目无隶属或背书关系。
 
+## 作者
+
+果比AI · [guobi.ai](https://guobi.ai)
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © 2026 果比AI (guobi.ai)
