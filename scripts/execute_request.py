@@ -1190,24 +1190,7 @@ def update_test_matrix_with_results(
     if semgrep is None and not native:
         return
     matrix_path = request.verify_matrix_path
-    existing_regression = ""
-    if matrix_path.exists():
-        existing = matrix_path.read_text(encoding="utf-8")
-        if GENERATED not in existing:
-            actions.append(f"skip human file: {matrix_path}")
-            return
-        candidate_regression = markdown_section(existing, "Regression Matrix")
-        if section_is_complete(candidate_regression):
-            existing_regression = candidate_regression
-
     status, reason = verification_rollup(semgrep, native)
-    rows = []
-    for idx, source in enumerate(request.requirements or [Path("none")], start=1):
-        requirement = requirement_title(source) if source != Path("none") else request.name
-        rows.append(
-            f"| {md_cell(f'R{idx}')} | {md_cell(requirement)} | {md_cell('TBD')} | "
-            f"{md_cell('TBD')} | {md_cell('See verification evidence below')} | {md_cell(status)} |"
-        )
 
     evidence_rows = []
     if semgrep:
@@ -1220,27 +1203,7 @@ def update_test_matrix_with_results(
             f"| {md_cell(item.name)} | {md_cell(f'`{command_to_text(item.command)}`')} | "
             f"{md_cell(item.status)} | {md_cell(item.exit_code if item.exit_code is not None else '')} |"
         )
-
-    regression_section = existing_regression or f"""| Existing Behavior | Related Module / API | Regression Check | Required | Status |
-|---|---|---|---|---|
-| Existing behavior identified from `docs/memory/module-map.md` | TBD | TBD | yes | {status} |"""
-
-    content = f"""# Test Matrix
-
-Request: `{request.name}`
-Spec: `{rel(request.spec_path, target)}`
-
-| Requirement ID | Requirement | Unit Test | Integration Test | Manual / Release Check | Status |
-|---|---|---|---|---|---|
-{chr(10).join(rows)}
-
-## Regression Matrix
-
-{regression_section}
-
-## Verification Evidence
-
-Status: `{status}`
+    evidence_section = f"""Status: `{status}`
 
 Reason: {reason}
 
@@ -1253,6 +1216,47 @@ Structured results:
 - `docs/verify/verification-results.json`
 - `docs/verify/verification-results.md`
 """
+
+    # 已存在(框架生成的):保留 agent 填好的需求映射表与 Regression Matrix,只刷新 Verification Evidence
+    # (旧实现每次都把需求行重写成 TBD,会冲掉 agent 的手填成果)
+    if matrix_path.exists():
+        existing = matrix_path.read_text(encoding="utf-8")
+        if GENERATED not in existing:
+            actions.append(f"skip human file: {matrix_path}")
+            return
+        head = existing.split("## Verification Evidence", 1)[0].replace(GENERATED, "").strip()
+        content = f"{head}\n\n## Verification Evidence\n\n{evidence_section}"
+        safe_write(matrix_path, content, force=True, actions=actions)
+        return
+
+    # 首次(矩阵尚不存在):生成 TBD 模板,由 agent 填需求映射与回归
+    rows = []
+    for idx, source in enumerate(request.requirements or [Path("none")], start=1):
+        requirement = requirement_title(source) if source != Path("none") else request.name
+        rows.append(
+            f"| {md_cell(f'R{idx}')} | {md_cell(requirement)} | {md_cell('TBD')} | "
+            f"{md_cell('TBD')} | {md_cell('TBD')} | {md_cell(status)} |"
+        )
+    content = f"""# Test Matrix
+
+Request: `{request.name}`
+Spec: `{rel(request.spec_path, target)}`
+
+## Requirement Traceability
+
+| Requirement ID | Requirement | Unit Test | Integration Test | Manual / Release Check | Status |
+|---|---|---|---|---|---|
+{chr(10).join(rows)}
+
+## Regression Matrix
+
+| Existing Behavior | Related Module / API | Regression Check | Required | Status |
+|---|---|---|---|---|
+| Existing behavior identified from `docs/memory/module-map.md` | TBD | TBD | yes | {status} |
+
+## Verification Evidence
+
+{evidence_section}"""
     safe_write(matrix_path, content, force=True, actions=actions)
 
 
