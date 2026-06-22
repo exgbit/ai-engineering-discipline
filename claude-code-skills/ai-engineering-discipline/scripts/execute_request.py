@@ -1043,10 +1043,38 @@ def result_to_dict(result: CommandResult) -> dict[str, object]:
     }
 
 
+def count_test_cases(native: list[CommandResult]) -> tuple[int, int, bool]:
+    """从测试命令输出解析通过/失败的用例数(pytest / unittest)。
+    parsed=False 表示没解析到真实数字,调用方应改用更保守的措辞。"""
+    passed = failed = 0
+    parsed = False
+    for item in native:
+        if item.name == "native:detect":
+            continue
+        out = f"{item.stdout or ''}\n{item.stderr or ''}"
+        mp = re.search(r"(\d+)\s+passed", out)        # pytest: "4 passed"
+        mf = re.search(r"(\d+)\s+failed", out)        # pytest: "1 failed"
+        if mp or mf:
+            if mp:
+                passed += int(mp.group(1))
+            if mf:
+                failed += int(mf.group(1))
+            parsed = True
+            continue
+        mr = re.search(r"Ran\s+(\d+)\s+test", out)    # unittest: "Ran 4 tests"
+        if mr:
+            total = int(mr.group(1))
+            fcount = sum(int(m.group(1)) for m in re.finditer(r"(?:failures|errors)=(\d+)", out))
+            failed += fcount
+            passed += max(0, total - fcount)
+            parsed = True
+    return passed, failed, parsed
+
+
 def humanize_uncovered(item: str) -> str:
     low = item.lower()
     if low.startswith("semgrep"):
-        return "Security scan (Semgrep) did not run — usually because it isn't installed. It's an optional check."
+        return "A security scan did not run — the scanner isn't installed on this machine. It's an optional check."
     if low.startswith("build"):
         return "There's no separate build step for this kind of project, so nothing to build."
     if low.startswith("native_checks"):
@@ -1095,16 +1123,23 @@ def write_user_summary(
     needs_human = [str(x) for x in (gate_details.get("needs_human_checks") or [])]
 
     test_items = [i for i in native if i.name != "native:detect"]
-    passed = sum(1 for i in test_items if i.status == "passed")
-    failed = sum(1 for i in test_items if i.status in {"failed", "timeout"})
+    case_passed, case_failed, parsed = count_test_cases(native)
 
     lines = [f"# Summary: {request.name}", ""]
-    lines.append(f"- Tests: {passed} passed, {failed} failed" if test_items else "- Tests: none ran")
+    if not test_items:
+        lines.append("- Tests: none ran")
+    elif parsed:
+        lines.append(f"- Tests: {case_passed} passed, {case_failed} failed")
+    else:
+        cmd_passed = sum(1 for i in test_items if i.status == "passed")
+        cmd_failed = sum(1 for i in test_items if i.status in {"failed", "timeout"})
+        lines.append(f"- Tests: {cmd_passed} of {len(test_items)} check(s) passed, {cmd_failed} failed")
+
     if blocking:
         lines.append("- Status: NOT DONE YET — needs fixing:")
         lines.extend(f"  - {humanize_blocking(b)}" for b in blocking)
     elif not coverage:
-        lines.append("- Status: DONE — tests pass and there are no blocking problems.")
+        lines.append("- Status: DONE — tests pass; some optional checks were skipped (listed below).")
     else:
         lines.append("- Status: DONE — everything required was checked and passed.")
 
