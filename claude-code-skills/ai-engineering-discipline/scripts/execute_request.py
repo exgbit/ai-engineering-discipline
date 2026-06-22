@@ -686,6 +686,55 @@ def regression_matrix_complete(request: ManagedRequest) -> bool:
 # 人工类 required 检查:脚本无法自动完成,列为"需人工确认",不锁死 can_merge
 HUMAN_CHECKS = {"regression_tests", "failing_test_or_trace", "manual_validation", "source_consistency"}
 
+# 这些任务类型改了代码就必须配套测试(实质质量门禁,而非扫 markdown)
+TASKS_NEEDING_TESTS = {"feature", "bugfix", "refactor"}
+
+_CODE_EXTS = (
+    ".py", ".go", ".js", ".ts", ".jsx", ".tsx", ".java", ".rs", ".rb",
+    ".php", ".c", ".cc", ".cpp", ".cs", ".kt", ".swift", ".scala",
+)
+
+
+def git_changed_files(target: Path) -> list[str] | None:
+    """目标项目工作树改动的文件(相对路径);非 git 仓库或 git 不可用时返回 None。"""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(target), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (FileNotFoundError, OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    files: list[str] = []
+    for line in result.stdout.splitlines():
+        path = line[3:].strip() if len(line) > 3 else ""
+        if " -> " in path:  # 重命名:取新路径
+            path = path.split(" -> ")[-1].strip()
+        if path:
+            files.append(path)
+    return files
+
+
+def is_test_file(path: str) -> bool:
+    segs = path.lower().split("/")
+    if any(seg in {"tests", "test", "__tests__", "spec"} for seg in segs):
+        return True
+    name = segs[-1]
+    return (
+        name.startswith("test_") or name.endswith("_test.py") or name.endswith("_test.go")
+        or ".test." in name or ".spec." in name
+        or name.endswith("test.java") or name.endswith("tests.java")
+    )
+
+
+def is_framework_artifact(path: str) -> bool:
+    return path.startswith(("docs/", ".claude/", ".codex/", ".github/")) or path == ".ai-discipline.json"
+
+
+def is_code_file(path: str) -> bool:
+    return path.endswith(_CODE_EXTS)
+
 
 def verification_gate_details(
     request: ManagedRequest,
@@ -751,6 +800,20 @@ def verification_gate_details(
     for manual_check in sorted(HUMAN_CHECKS):
         if manual_check in required:
             needs_human_checks.append(manual_check)
+
+    # 测试配套门禁(实质质量,非 markdown 扫描):feature/bugfix/refactor 改了代码
+    # 就必须配套测试改动,否则阻断;非 git 项目无法核实,降级为未覆盖提示
+    if request.task in TASKS_NEEDING_TESTS:
+        changed = git_changed_files(request.path.parents[2])
+        if changed is None:
+            uncovered_checks.append("test-coverage (cannot verify: target is not a git repository)")
+        else:
+            code_changed = [f for f in changed if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
+            test_changed = [f for f in changed if is_test_file(f) and not is_framework_artifact(f)]
+            if code_changed and not test_changed:
+                blocking_reasons.append(
+                    f"code changed without a matching test change ({len(code_changed)} code file(s), 0 test files)"
+                )
 
     blocking_reasons = sorted(set(blocking_reasons))
     uncovered_checks = sorted(set(uncovered_checks))

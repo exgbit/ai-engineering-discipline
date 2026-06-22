@@ -28,7 +28,7 @@ Otherwise follow the `ai-engineering-discipline` skill's "Default Entry: One Pla
    ```
 
 4. **Read the code, then fill the spec yourself.** First read the source files the request touches (the scripts do not analyze code). Then open the generated `docs/specs/<slug>.md` and complete its `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding — give a real Impact Analysis and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
-5. **Implement in small steps** following the generated loop. State the plan in one plain sentence before editing code, then proceed unless the user objects.
+5. **Implement in small steps, with tests** following the generated loop. For feature/bugfix/refactor work you MUST add or update tests — the verification gate blocks a code change that ships without a matching test change. State the plan in one plain sentence before editing code, then proceed unless the user objects.
 6. **Verify**:
 
    ```bash

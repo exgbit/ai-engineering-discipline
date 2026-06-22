@@ -47,7 +47,7 @@ This is the primary way to use the framework. The user should never have to pick
      --task <inferred> --name "<inferred name>" --requirements docs/requirements/<slug>.md
    ```
 4. **Read the code, then fill the spec yourself.** First read the source files the request touches to understand the existing structure (the scripts do not analyze code — that is your job). Then complete the generated spec's `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding: give a real Impact Analysis (which modules/functions are affected and how), and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
-5. **Implement in small steps.** Once the spec and loop are ready, implement the change in scoped steps following the loop. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
+5. **Implement in small steps, with tests.** Once the spec and loop are ready, implement the change in scoped steps following the loop. For feature/bugfix/refactor work you MUST add or update tests for the change — the verification gate blocks a code change that ships without a matching test change. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
 6. **Verify.** Run native checks (and Semgrep if installed) and read `can_merge` / blocking reasons:
    ```bash
    python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks
