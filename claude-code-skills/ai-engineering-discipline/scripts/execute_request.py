@@ -820,12 +820,27 @@ def tests_reference_symbols(target: Path, test_files: list[str], symbols: set[st
     return False
 
 
+def native_test_outcome(native: list[CommandResult]) -> str:
+    """测试命令的整体结果:'passed' | 'failed' | 'none'。只看测试命令(name 以 'test' 结尾,
+    覆盖 go:test/python:pytest/python:unittest/.../java:gradle-test,排除 lint/typecheck/build)
+    的进程状态,不靠 count_test_cases 的脆弱正则,对 go/java 也稳。fail-closed:没装/跳过算 none。"""
+    test_items = [i for i in native if i.name != "native:detect" and i.name.endswith("test")]
+    if not test_items:
+        return "none"
+    if any(i.status in {"failed", "timeout"} for i in test_items):
+        return "failed"
+    if all(i.status == "passed" for i in test_items):
+        return "passed"
+    return "none"  # 部分/全部 skipped(工具没装)→ 不能宣称套件全绿
+
+
 def verification_gate_details(
     request: ManagedRequest,
     semgrep: CommandResult | None,
     native: list[CommandResult],
 ) -> dict[str, object]:
     required = required_verify_checks(request)
+    regression_outcome = native_test_outcome(native)  # 全套测试真跑且过 = 回归已验证
     executed: list[dict[str, object]] = []
     blocking_reasons: list[str] = []   # 真问题(测试失败/安全发现/文档未填)→ 阻断 can_merge
     uncovered_checks: list[str] = []   # 自动工具不可用或未运行 → 仅提示,不阻断
@@ -835,8 +850,12 @@ def verification_gate_details(
     impact_missing = impact_analysis_missing_parts(request)
     if impact_missing:
         blocking_reasons.append(f"impact analysis incomplete: {', '.join(impact_missing)}")
-    if "regression_matrix" in required and not regression_matrix_complete(request):
-        blocking_reasons.append("regression incomplete (fill the spec's Regression Plan)")
+    # 回归:从"spec 填没填"升级成"全套测试真跑且过"。全套绿→已验证;全套红→失败项已在
+    # native 循环阻断;无可跑套件(none)→ 回退到要求填 Regression Plan,fail-closed。
+    if "regression_matrix" in required and regression_outcome == "none" and not regression_matrix_complete(request):
+        blocking_reasons.append(
+            "regression unverified: no test suite ran and the spec's Regression Plan is not filled"
+        )
 
     # semgrep(自动工具):失败/有发现 → 阻断;不可用或未运行 → 仅提示
     if semgrep:
@@ -881,12 +900,10 @@ def verification_gate_details(
         elif any("build" in item.name.lower() and item.status == "skipped" for item in native):
             uncovered_checks.append("build (not run)")
 
-    for manual_check in sorted(HUMAN_CHECKS):
-        if manual_check in required:
-            needs_human_checks.append(manual_check)
-
-    # 测试配套门禁(实质质量,非 markdown 扫描):feature/bugfix/refactor 改了代码
-    # 就必须配套测试改动,否则阻断;非 git 项目无法核实,降级为未覆盖提示
+    # 测试配套门禁(实质质量,非 markdown 扫描):feature/bugfix/refactor/migration 改了代码
+    # 就必须配套测试,且测试要真引用改动符号(堵空测试/测错函数)。test_evidence_ok 三态供
+    # 下面的人工检查复用:True=有覆盖改动的测试;False=改了码却没有;None=非 git 无法核实。
+    test_evidence_ok = None
     if request.task in TASKS_NEEDING_TESTS:
         repo = request.path.parents[2]
         changed = git_changed_files(repo)
@@ -895,18 +912,34 @@ def verification_gate_details(
         else:
             code_changed = [f for f in changed if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
             test_changed = [f for f in changed if is_test_file(f) and not is_framework_artifact(f)]
-            if code_changed and not test_changed:
+            if not code_changed:
+                test_evidence_ok = True  # 没改业务代码,无需配套测试
+            elif not test_changed:
+                test_evidence_ok = False
                 blocking_reasons.append(
                     f"code changed without a matching test change ({len(code_changed)} code file(s), 0 test files)"
                 )
-            elif code_changed and test_changed:
-                # 不只看"有没有测试文件变动",还看测试是否引用了改动代码的符号
-                # (堵住空测试 / 不相干测试骗过门禁)
+            else:
                 symbols = changed_code_symbols(repo, code_changed)
-                if not tests_reference_symbols(repo, test_changed, symbols):
+                if tests_reference_symbols(repo, test_changed, symbols):
+                    test_evidence_ok = True
+                else:
+                    test_evidence_ok = False
                     blocking_reasons.append(
                         "the changed tests do not reference any changed code symbol — the test may not actually cover the change"
                     )
+
+    for manual_check in sorted(HUMAN_CHECKS):
+        if manual_check not in required:
+            continue
+        # 回归测试(refactor):全套测试真跑且过 = 行为不变证据,自动满足,不再要人工确认
+        if manual_check == "regression_tests" and regression_outcome == "passed":
+            continue
+        # bugfix 失败测试证据:有覆盖改动的测试即满足;没有时已被上面的测试配套门禁阻断
+        # (不重复记);非 git(None)无法核实 → 保留人工,fail-closed。
+        if manual_check == "failing_test_or_trace" and test_evidence_ok is not None:
+            continue
+        needs_human_checks.append(manual_check)
 
     blocking_reasons = sorted(set(blocking_reasons))
     uncovered_checks = sorted(set(uncovered_checks))
@@ -1477,6 +1510,8 @@ def write_verification_results(
 
     write_user_summary(target, request, gate_details, native, actions)
     record_run_data(target, request, gate_details, native, actions)
+    from build_test_index import refresh_test_index  # 局部 import:避免与本模块的循环依赖
+    refresh_test_index(target, actions)
 
 
 def verification_rollup(semgrep: CommandResult | None, native: list[CommandResult]) -> tuple[str, str]:

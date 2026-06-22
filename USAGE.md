@@ -106,9 +106,9 @@ Not covered (optional or unavailable — these are not failures):
 
 框架的验证门禁是**动真格**的,不是走形式。以下情况会让"完成"亮红灯(`NOT DONE YET`):
 
-- **改了代码但没加/改测试**(新功能、修 bug、重构)→ 拦。这是硬规则,光改实现不写测试过不了。
-- **规格里的影响分析 / 回归计划没填完** → 拦。
+- **改了代码但没加/改测试**(新功能、修 bug、重构、迁移)→ 拦。光改实现不写测试过不了;修 bug 时,测试还必须真覆盖你改的函数。
 - **测试失败、或安全扫描发现问题** → 拦。
+- **跑不出可用的测试套件、且规格的回归计划也没填** → 拦。注意:**只要全套测试真跑且通过,就算回归过关**,不用再手填回归表(全套绿 = 旧功能没被破坏)。
 
 以下情况**不拦**(只在 SUMMARY 里如实提示"没覆盖"):
 
@@ -154,6 +154,7 @@ python $S execute .  --run-native-checks                                        
 python $S verify  .                                                               # 强制跑全部检查
 python $S report  .                                                               # 刷新汇总报告
 python $S metrics .                                                               # 聚合多次/多项目的指标
+python $S index   .                                                               # 建/刷新测试索引(功能↔守护测试 + 盲区)
 python $S doctor  .                                                               # 自检安装是否正常
 ```
 
@@ -181,6 +182,7 @@ python $S config .          # 查看当前配置
 | `docs/loops/<名字>.md` | 这次工作的步骤/状态机 |
 | `docs/verify/verification-results.json` / `.md` | 验证结果(技术细节) |
 | `docs/verify/test-matrix.md` | 需求 ↔ 测试映射 + 回归矩阵 |
+| `docs/verify/test-index.md` | **功能/接口 ↔ 守护测试**反向索引 + 盲区(换人上手用) |
 | `docs/memory/module-map.md` 等 | 模块边界、踩坑、项目规则 |
 | `docs/reports/pilot-report.md` | 试点汇总报告(给团队看趋势) |
 | `data/run-stats.jsonl` | **每次验证的统计**(累积,机器可读) |

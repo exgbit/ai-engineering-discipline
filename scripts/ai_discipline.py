@@ -754,6 +754,11 @@ def command_metrics(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_index(args: argparse.Namespace) -> int:
+    target = target_from_args(args)
+    return run_python(script_path("build_test_index.py"), [str(target)])
+
+
 def add_common_project(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("target", nargs="?", help="Target project path. Defaults to current directory.")
     parser.add_argument("--project", default=".", help="Target project path. Defaults to current directory.")
@@ -852,6 +857,10 @@ def build_parser() -> argparse.ArgumentParser:
     metrics.add_argument("--input", dest="inputs", action="append", default=[], help="Project directory or pilot-report.json. Can be passed multiple times.")
     metrics.add_argument("--output-dir", default="docs/reports", help="Directory for pilot-summary.md/.json/.csv. Relative paths resolve inside the target project.")
     metrics.set_defaults(func=command_metrics)
+
+    index = subparsers.add_parser("index", help="Build/refresh docs/verify/test-index.{md,json}: code symbol -> guarding tests + untested blind spots.")
+    add_common_project(index)
+    index.set_defaults(func=command_index)
 
     return parser
 
