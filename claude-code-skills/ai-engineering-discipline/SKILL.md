@@ -13,27 +13,27 @@ Use this as the orchestrator skill in Claude Code. It coordinates four step skil
 ai-spec -> ai-loop -> ai-verify -> ai-memory
 ```
 
-Each step skill owns one part of the default framework:
+Each step skill owns one engineering control:
 
-- `ai-spec`: GitHub Spec Kit
-- `ai-loop`: LangGraph
-- `ai-verify`: Semgrep plus native tests
-- `ai-memory`: Mem0 plus local `docs/memory`
+- `ai-spec`: turn the request into a spec (the framework's own template, filled by you the agent)
+- `ai-loop`: run the work through a controlled loop (the framework's own runbook)
+- `ai-verify`: prove it with native tests plus an optional Semgrep security scan
+- `ai-memory`: persist durable lessons in local `docs/memory`
 
 ## Integrated Workflow
 
 This framework's default behavior is one integrated workflow. Hide the step skills behind this orchestrator unless the user explicitly asks to operate a single step.
 
-Do not ask the user to choose between Spec Kit, LangGraph, Semgrep, or Mem0. Use the default mapping:
+Do not surface tool names to the user. The four controls map to the four step skills; only Verify calls an external tool (Semgrep, optional):
 
 ```text
-Spec   -> ai-spec   -> GitHub Spec Kit
-Loop   -> ai-loop   -> LangGraph
-Verify -> ai-verify -> Semgrep + native tests
-Memory -> ai-memory -> Mem0 + local docs/memory
+Spec   -> ai-spec   -> framework's own spec template, filled by the agent
+Loop   -> ai-loop   -> framework's own loop runbook
+Verify -> ai-verify -> native tests + optional Semgrep security scan
+Memory -> ai-memory -> local docs/memory
 ```
 
-Integration depth differs by design: only Verify runs an external tool (Semgrep) at runtime via `execute_request.py`. Spec/Loop/Memory generate connected Markdown artifacts and guidance; the framework name in each row is the recommended tool to adopt manually, not something the scripts invoke. See `framework/integration-levels.md`.
+Integration depth differs by design: only Verify runs an external tool (Semgrep) at runtime via `execute_request.py`, and even that is optional. Spec/Loop/Memory are implemented entirely by the framework's own Markdown templates plus you (the agent); the tool name in each row (Spec Kit / LangGraph / Mem0) is only a style reference — the framework does not call them and they do not need to be installed. See `framework/integration-levels.md`.
 
 ## Default Entry: One Plain Sentence
 

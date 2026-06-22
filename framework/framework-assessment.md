@@ -10,15 +10,15 @@ It is an integrated control layer that hides their operational complexity behind
 task + risk + requirements -> preset -> managed request -> orchestrated skills
 ```
 
-## Difference From Direct Framework Use
+## What the Framework Decides For You
 
-Direct use requires teams to understand each framework independently:
+Disciplined AI engineering by hand requires deciding:
 
-- when to run Spec Kit and which spec artifacts to produce;
-- when a task needs a LangGraph-style loop and how retries or human gates should work;
-- how Semgrep fits with tests, lint, build, and CI;
-- when Mem0 is useful versus local repository memory;
-- how artifacts move between frameworks.
+- when a request should become a spec, and what the spec must contain;
+- when a task needs a structured loop, with retries and human gates;
+- how a security scan fits with tests, lint, build, and CI;
+- when to write durable memory versus throwaway notes;
+- how artifacts move between steps.
 
 This framework centralizes those decisions:
 
@@ -38,12 +38,11 @@ This framework centralizes those decisions:
 
 ## Current Limitations
 
-- Integration is still workflow/file-protocol based, not deep SDK orchestration.
-- LangGraph loops are represented as runbooks; they are not yet generated as executable graphs.
 - Semgrep and native-check results are written to structured verification artifacts and merged back into generated `test-matrix.md`; exact test-case mapping still needs project-specific evidence.
-- Mem0 is configured as the default memory adapter, but memory writes still default to local Markdown unless a preset enables `mem0_write`.
+- The test gate checks that a test file changed alongside code; it does not yet verify that the test meaningfully covers the change.
 - Presets cover common task/risk combinations, not every company policy.
-- `execute_request.py` intentionally avoids business code changes and external tool execution by default.
+- `execute_request.py` intentionally avoids business code changes and destructive operations by default.
+- The framework provides discipline and gates; the actual code understanding, spec content, and judgement are done by the AI agent, not the framework.
 
 ## Data Needed To Prove Value
 
@@ -65,7 +64,6 @@ Use a four-week pilot before making claims about impact.
 ## Recommended Next Optimizations
 
 1. Add exact requirement-to-test mapping instead of global verification status propagation.
-2. Add a LangGraph graph generator for common runbooks.
+2. Upgrade the test gate from "a test file changed" to "the test actually covers the change" (coverage or semantic check).
 3. Add richer policy controls for which native commands are allowed per company.
-4. Add optional Mem0 write/read commands gated by preset policy.
-5. Add company-specific preset overlays.
+4. Add company-specific preset overlays.

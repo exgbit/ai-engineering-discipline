@@ -29,7 +29,6 @@ Actions:
 3. Create one `docs/specs/<feature>.md` per feature.
 4. Preserve source wording for business rules and acceptance criteria.
 5. Mark unclear items as open questions.
-6. If GitHub Spec Kit is installed, convert selected features into Spec Kit artifacts.
 
 ## Step 2: ai-loop
 

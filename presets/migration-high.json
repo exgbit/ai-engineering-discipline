@@ -4,21 +4,18 @@
   "risk": "high",
   "description": "Migration preset requiring rollback and human gates.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "migration",
     "require_rollback": true,
     "require_data_safety": true,
     "require_acceptance_criteria": true
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "migration-loop",
     "max_retries": 1,
     "human_gate": "before_implementation_and_on_failure",
     "checkpoint": true
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": true,
@@ -27,10 +24,12 @@
     "require_manual_validation": true
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": true,
     "write_pitfalls": "always_if_learning",
-    "tags": ["migration", "high-risk"]
+    "tags": [
+      "migration",
+      "high-risk"
+    ]
   }
 }

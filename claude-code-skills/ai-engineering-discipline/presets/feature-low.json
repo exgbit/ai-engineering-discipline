@@ -4,21 +4,18 @@
   "risk": "low",
   "description": "Small, low-risk feature with limited blast radius.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "feature",
     "require_non_goals": true,
     "require_acceptance_criteria": true,
     "require_open_questions": true
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "feature-slice-loop",
     "max_retries": 1,
     "human_gate": "on_verify_failure",
     "checkpoint": false
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": true,
@@ -26,10 +23,12 @@
     "require_security_scan": false
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": false,
     "write_pitfalls": "only_if_failure",
-    "tags": ["feature", "low-risk"]
+    "tags": [
+      "feature",
+      "low-risk"
+    ]
   }
 }

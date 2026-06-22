@@ -166,8 +166,8 @@ def main() -> int:
     parser.add_argument("--execute", action="store_true", help="Actually run install commands.")
     parser.add_argument(
         "--layers",
-        default="spec,loop,verify,memory",
-        help="Comma-separated layers to process.",
+        default="verify",
+        help="Comma-separated layers to process. Only Verify (Semgrep) is a real tool the framework uses.",
     )
     args = parser.parse_args()
 
@@ -189,11 +189,17 @@ def main() -> int:
         if layer_name not in selected:
             statuses[layer_name] = "not selected"
             continue
+        if not layer.get("runtime_integrated", False):
+            # 风格参考层(Spec/Loop/Memory):框架不调用它们,无需安装
+            statuses[layer_name] = "reference-only (not used by the framework)"
+            continue
         statuses[layer_name] = status_for(layer)
 
     if args.execute:
         for layer_name in selected:
             layer = layers[layer_name]
+            if not layer.get("runtime_integrated", False):
+                continue  # 风格参考层不安装
             if statuses[layer_name] == "installed":
                 print(f"skip {layer_name}: already installed")
                 install_notes[layer_name] = InstallOutcome("skipped", "already installed")

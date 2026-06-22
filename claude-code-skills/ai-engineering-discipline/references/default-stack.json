@@ -1,42 +1,16 @@
 {
   "version": 1,
   "name": "default-ai-engineering-stack",
-  "description": "Opinionated default GitHub/open-source framework stack for Spec / Loop / Verify / Memory.",
+  "description": "The framework needs no external tools to run. The only optional one is Semgrep, the security-scan gate in the Verify step. Spec / Loop / Memory are implemented by the framework's own Markdown templates and the AI agent.",
   "layers": {
-    "spec": {
-      "framework": "GitHub Spec Kit",
-      "repo": "https://github.com/github/spec-kit",
-      "why": "Purpose-built open-source toolkit for Spec-Driven Development with agent integrations and specify CLI.",
-      "install": {
-        "preferred": ["uv", "tool", "install", "specify-cli", "--from", "git+https://github.com/github/spec-kit.git"],
-        "check": ["specify", "--version"]
-      }
-    },
-    "loop": {
-      "framework": "LangGraph",
-      "repo": "https://github.com/langchain-ai/langgraph",
-      "why": "Stateful graph runtime for resilient agent workflows and explicit loop orchestration.",
-      "install": {
-        "preferred": ["python", "-m", "pip", "install", "--user", "langgraph"],
-        "check_python_import": "langgraph"
-      }
-    },
     "verify": {
       "framework": "Semgrep",
       "repo": "https://github.com/semgrep/semgrep",
-      "why": "Language-aware static analysis and security checks across many languages, suitable as a default AI-code verification gate.",
+      "runtime_integrated": true,
+      "why": "Invoked by execute_request.py as the security-scan gate. Optional: if it is not installed, the scan is reported as skipped (not a failure) and everything else still works.",
       "install": {
         "preferred": ["python", "-m", "pip", "install", "--user", "semgrep"],
         "check": ["semgrep", "--version"]
-      }
-    },
-    "memory": {
-      "framework": "Mem0",
-      "repo": "https://github.com/mem0ai/mem0",
-      "why": "Universal memory layer for AI agents with Python and npm support; suitable for durable agent memory beyond local docs.",
-      "install": {
-        "preferred": ["python", "-m", "pip", "install", "--user", "mem0ai"],
-        "check_python_import": "mem0"
       }
     }
   }

@@ -4,7 +4,6 @@
   "risk": "high",
   "description": "High-risk feature touching critical flows, data, security, billing, permissions, or infrastructure.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "feature",
     "require_non_goals": true,
     "require_acceptance_criteria": true,
@@ -13,14 +12,12 @@
     "require_open_questions": true
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "feature-slice-loop",
     "max_retries": 1,
     "human_gate": "before_implementation_and_on_failure",
     "checkpoint": true
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": true,
@@ -29,10 +26,12 @@
     "require_manual_validation": true
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": true,
     "write_pitfalls": "always_if_learning",
-    "tags": ["feature", "high-risk"]
+    "tags": [
+      "feature",
+      "high-risk"
+    ]
   }
 }

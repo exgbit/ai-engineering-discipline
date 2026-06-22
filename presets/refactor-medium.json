@@ -4,20 +4,17 @@
   "risk": "medium",
   "description": "Behavior-preserving refactor preset.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "refactor",
     "require_non_goals": true,
     "require_behavior_invariants": true
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "refactor-loop",
     "max_retries": 1,
     "human_gate": "before_large_diff_or_verify_failure",
     "checkpoint": true
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": true,
@@ -25,10 +22,12 @@
     "require_regression_tests": true
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": false,
     "write_pitfalls": "only_if_failure",
-    "tags": ["refactor", "medium-risk"]
+    "tags": [
+      "refactor",
+      "medium-risk"
+    ]
   }
 }

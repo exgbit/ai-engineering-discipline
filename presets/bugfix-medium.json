@@ -4,20 +4,17 @@
   "risk": "medium",
   "description": "Default bugfix preset requiring reproduction and focused verification.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "bugfix",
     "require_reproduction": true,
     "require_acceptance_criteria": true
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "bugfix-loop",
     "max_retries": 2,
     "human_gate": "on_root_cause_unclear_or_verify_failure",
     "checkpoint": true
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": true,
@@ -25,10 +22,12 @@
     "require_build": false
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": false,
     "write_pitfalls": "if_bug_pattern",
-    "tags": ["bugfix", "medium-risk"]
+    "tags": [
+      "bugfix",
+      "medium-risk"
+    ]
   }
 }

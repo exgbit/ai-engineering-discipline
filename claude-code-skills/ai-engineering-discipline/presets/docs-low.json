@@ -4,20 +4,17 @@
   "risk": "low",
   "description": "Documentation-only work with source consistency checks.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "docs",
     "require_source_links": true,
     "require_acceptance_criteria": false
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "docs-loop",
     "max_retries": 1,
     "human_gate": "on_source_conflict",
     "checkpoint": false
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": false,
@@ -25,10 +22,12 @@
     "require_link_check": true
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": false,
     "write_pitfalls": "never",
-    "tags": ["docs", "low-risk"]
+    "tags": [
+      "docs",
+      "low-risk"
+    ]
   }
 }

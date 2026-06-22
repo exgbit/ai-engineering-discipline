@@ -1,6 +1,6 @@
 # Integrated Workflow
 
-This framework is designed so users do not need to learn Spec Kit, LangGraph, Semgrep, or Mem0 separately.
+This framework is designed so users do not need to learn or install Spec Kit, LangGraph, or Mem0 at all. The only optional external tool is Semgrep (the security scan).
 
 The Claude Code user-facing interface is one managed request through slash commands:
 
@@ -19,29 +19,29 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
   --risk medium
 ```
 
-Internally, the framework routes work through four steps. Each step maps to a recommended open-source framework, but the integration depth differs by design (see `integration-levels.md`):
+Internally, the framework routes work through four steps, all implemented by its own Markdown templates plus the AI agent:
 
 ```text
-Spec   -> ai-spec   -> GitHub Spec Kit   (artifact-compatible: generates a Markdown spec; Spec Kit not invoked)
-Loop   -> ai-loop   -> LangGraph         (runbook-compatible: generates a Markdown loop; LangGraph not invoked)
-Verify -> ai-verify -> Semgrep + native  (runtime-integrated: execute_request actually runs Semgrep + native checks)
-Memory -> ai-memory -> Mem0 + docs/memory (local-memory-first: writes docs/memory; Mem0 not invoked by default)
+Spec   -> ai-spec   -> framework's own spec template (filled by the agent)
+Loop   -> ai-loop   -> framework's own loop runbook
+Verify -> ai-verify -> native tests + optional Semgrep security scan
+Memory -> ai-memory -> local docs/memory
 ```
 
-Only the Verify step calls an external tool at runtime today. The other three produce connected Markdown artifacts and guidance; the framework name in each row is the recommended tool to adopt manually, not something the scripts execute.
+Only the Verify step calls an external tool (Semgrep), and only if it is installed — otherwise the scan is reported as skipped, not failed. No other external tool is called or needed. (The Spec / Loop / Memory templates take stylistic inspiration from GitHub Spec Kit, LangGraph, and Mem0, but the framework does not run those tools and you do not need to install them.)
 
 ## What This Framework Adds
 
-Using the four frameworks directly requires users to know:
+Doing disciplined AI engineering by hand requires deciding:
 
-- when requirements should become specs;
-- how Spec Kit artifacts hand off to implementation work;
-- when a task needs a LangGraph-style loop versus a simple runbook;
-- how Semgrep fits with tests, lint, build, and CI;
-- when Mem0 is useful versus local project memory;
+- when requirements should become a spec;
+- how the spec hands off to implementation;
+- when a task needs a structured loop versus a simple runbook;
+- how the security scan fits with tests, lint, build, and CI;
+- when to write durable memory versus throwaway notes;
 - how evidence and memory flow across steps.
 
-This framework owns those decisions. The user asks for a development task; the orchestrator calls the right step skills and keeps the artifacts connected.
+This framework owns those decisions. The user asks for a development task; the orchestrator runs the steps and keeps the artifacts connected.
 
 ## Preset Resolver
 
@@ -55,10 +55,10 @@ The preset resolver expands this into framework parameters:
 
 ```text
 feature + medium
-  -> Spec Kit mode=feature, acceptance criteria required
-  -> LangGraph runbook=feature-slice-loop, max_retries=2, human_gate=on_verify_failure
-  -> Semgrep config=auto, severity=warning, native_tests=true, require_build=true
-  -> Mem0/local memory tags=[feature, medium-risk]
+  -> spec:   mode=feature, acceptance criteria required
+  -> loop:   runbook=feature-slice-loop, max_retries=2, human_gate=on_verify_failure
+  -> verify: Semgrep config=auto (only if installed), severity=warning, native_tests=true, require_build=true
+  -> memory: local docs/memory tags=[feature, medium-risk]
 ```
 
 Resolved parameters are written to:

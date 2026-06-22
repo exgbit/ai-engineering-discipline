@@ -1,19 +1,11 @@
 ---
 name: ai-loop
-description: "Loop step for AI engineering discipline. Use to run feature, bugfix, refactor, migration, or docs work through controlled loops. Default framework: LangGraph."
+description: "Loop step for AI engineering discipline. Use to run feature, bugfix, refactor, migration, or docs work through controlled loops."
 ---
 
 # AI Loop
 
-Use LangGraph as the default programmable loop framework.
-
-Install:
-
-```bash
-python -m pip install --user langgraph
-```
-
-For normal project work, start with Markdown loop runbooks in `docs/loops/`.
+This step is implemented by the framework itself — no external tool is called. The orchestrator generates a Markdown loop runbook in `docs/loops/`; you (the agent) follow it.
 
 Every loop must define:
 
@@ -26,4 +18,4 @@ Every loop must define:
 - escalation path;
 - memory writes.
 
-Use existing requirement specs to choose the loop: bugfix, feature-slice, migration, refactor, or docs.
+Use the existing requirement specs to choose the loop: bugfix, feature-slice, migration, refactor, or docs.

@@ -18,10 +18,10 @@ CLAUDE.md                    # Agent operating protocol
 AGENTS.md                    # Repository contributor guide for agents
 claude-code-skills/
   ai-engineering-discipline/ # Claude Code orchestrator skill
-  ai-spec/                   # Spec step skill, default: GitHub Spec Kit
-  ai-loop/                   # Loop step skill, default: LangGraph
-  ai-verify/                 # Verify step skill, default: Semgrep
-  ai-memory/                 # Memory step skill, default: Mem0
+  ai-spec/                   # Spec step skill (framework's own spec template)
+  ai-loop/                   # Loop step skill (framework's own loop runbook)
+  ai-verify/                 # Verify step skill (native tests + optional Semgrep)
+  ai-memory/                 # Memory step skill (local docs/memory)
 claude-code-commands/
   ai-start.md                # Claude Code slash command: initialize/inspect
   ai-request.md              # Claude Code slash command: create managed request
@@ -65,7 +65,7 @@ scripts/
   ai-discipline.bat         # Windows unified CLI wrapper
   bootstrap.sh              # macOS / Linux 项目安装脚本
   bootstrap.bat             # Windows 项目安装脚本
-  install_default_adapters.py # Plan/install Spec Kit, LangGraph, Semgrep, Mem0
+  install_default_adapters.py # Plan/install the optional Semgrep gate (other layers are style-reference only)
   run_request.py            # Create managed request from task/risk/requirements
   execute_request.py        # Execute safe setup steps from current-request.md
   init_project.py           # Create framework files in a target project
@@ -117,7 +117,7 @@ By default, existing files are not overwritten. To reinstall framework files, ad
 scripts\bootstrap.bat C:\path\to\target-project --force
 ```
 
-To also install the default open-source adapter stack automatically:
+The framework needs no external tools to run. The only optional one is **Semgrep** (the security-scan gate). Install it with:
 
 ```bash
 ./scripts/bootstrap.sh /path/to/target-project --install-adapters
@@ -127,12 +127,9 @@ To also install the default open-source adapter stack automatically:
 scripts\bootstrap.bat C:\path\to\target-project --install-adapters
 ```
 
-This installs:
+`--install-adapters` installs **only Semgrep** (the one tool the framework actually calls). If Semgrep is absent the scan is reported as skipped, not failed — everything else still works.
 
-- Spec: GitHub Spec Kit
-- Loop: LangGraph
-- Verify: Semgrep
-- Memory: Mem0
+Spec Kit, LangGraph, and Mem0 are **not installed and not needed**: the framework does not call them; they are only the style references that the Spec / Loop / Memory Markdown templates follow.
 
 The installer creates:
 
@@ -286,27 +283,25 @@ python .claude/skills/ai-engineering-discipline/scripts/run_request.py . \
   --risk medium
 ```
 
-The orchestrator skill calls the step skills internally:
+The orchestrator runs the four steps internally:
 
 ```text
-ai-spec   -> GitHub Spec Kit
-ai-loop   -> LangGraph
-ai-verify -> Semgrep + native tests
-ai-memory -> Mem0 + docs/memory
+ai-spec   -> framework's own spec template, filled by the agent
+ai-loop   -> framework's own loop runbook
+ai-verify -> native tests + optional Semgrep security scan
+ai-memory -> local docs/memory
 ```
 
-This is the difference from using the four frameworks directly: the user does not decide when to run each tool or how to pass artifacts between them. The framework owns the sequence, files, and handoffs. See `framework/integrated-workflow.md`.
+The value is that the user does not decide when to run each step or how to pass artifacts between them — the framework owns the sequence, files, and handoffs. Only the Verify step calls an external tool (Semgrep), and only if it is installed. See `framework/integrated-workflow.md`.
 
-Integration depth differs per layer, by design: Semgrep (Verify) is runtime-integrated and actually executed by `execute_request.py`; Spec Kit, LangGraph, and Mem0 are integrated through generated artifacts and agent guidance rather than direct invocation. See `framework/integration-levels.md` for the exact compatibility level of each layer.
-
-The managed request resolves low-level framework parameters from presets:
+The managed request resolves low-level parameters from presets:
 
 ```text
 task=feature risk=medium requirements=refund.md
-  -> Spec Kit mode and required spec sections
-  -> LangGraph loop/retry/human-gate settings
-  -> Semgrep config/severity/native checks
-  -> Mem0/local-memory write policy
+  -> spec:   mode and required spec sections
+  -> loop:   runbook/retry/human-gate settings
+  -> verify: Semgrep config/severity (if installed) + native checks
+  -> memory: local-memory write policy
 ```
 
 The resolved plan is written to `docs/ai-engineering/current-request.md`.
@@ -341,16 +336,16 @@ For CI-style usage, add `--fail-on-verify-failure`; the command exits non-zero a
 
 For a deeper assessment of the current architecture, limitations, and data needed to prove value, see `framework/framework-assessment.md`. For public wording, integration depth, and compatibility policy, see `framework/integration-levels.md`.
 
-## Default Open-Source Adapter Stack
+## Tools Per Layer (only one is actually used)
 
-The framework uses one opinionated default GitHub/open-source framework per layer:
+Each layer names an open-source tool, but **only Verify (Semgrep) is invoked by the framework at runtime, and even that is optional.** The other three names are only *style references* for the Markdown templates — the framework does not call them and you do not need to install them.
 
-| Layer | Default | Purpose |
-|---|---|---|
-| Spec | GitHub Spec Kit | Spec-driven development and agent-facing spec workflow |
-| Loop | LangGraph | Stateful agent loop and graph orchestration |
-| Verify | Semgrep | Cross-language static analysis and security verification |
-| Memory | Mem0 | Durable agent memory layer |
+| Layer | Tool | Called by the framework? | Need to install? |
+|---|---|---|---|
+| Spec | GitHub Spec Kit | No — style reference only | No |
+| Loop | LangGraph | No — style reference only | No |
+| Verify | Semgrep | Yes — runs it as the security-scan gate | Optional (skipped if absent) |
+| Memory | Mem0 | No — style reference only | No |
 
 Plan installation without changing the machine:
 
@@ -364,9 +359,9 @@ Install missing adapters:
 python scripts/install_default_adapters.py /path/to/target-project --execute
 ```
 
-This writes `docs/adapters/default-stack.md` in the target project with detected status and install commands.
+With `--execute` this installs **only Semgrep** (the one tool the framework calls); Spec Kit / LangGraph / Mem0 are listed as `reference-only` and are not installed. It writes `docs/adapters/default-stack.md` in the target project with the detected status.
 
-This project is independent. It uses GitHub Spec Kit, LangGraph, Semgrep, and Mem0 as default adapter targets; it is not affiliated with or endorsed by those projects.
+This project is independent. The Spec / Loop / Memory templates take stylistic inspiration from GitHub Spec Kit, LangGraph, and Mem0, and the Verify gate runs Semgrep; it is not affiliated with or endorsed by those projects, and it does not call Spec Kit, LangGraph, or Mem0.
 
 ## How To Use
 

@@ -1,42 +1,21 @@
 ---
 name: ai-loop
-description: "Loop step for AI engineering discipline. Use when Claude Code needs to execute a feature, bugfix, refactor, migration, or docs task through a controlled agent loop with states, retry policy, exit conditions, and human escalation. Default framework: LangGraph."
+description: "Loop step for AI engineering discipline. Use when Claude Code needs to execute a feature, bugfix, refactor, migration, or docs task through a controlled agent loop with states, retry policy, exit conditions, and human escalation."
 ---
 
 # AI Loop
 
-## Default Framework
+## How This Step Works
 
-Use LangGraph as the default Loop framework when a programmable agent state machine is needed.
-
-Repository: https://github.com/langchain-ai/langgraph
-
-Install:
-
-```bash
-python -m pip install --user langgraph
-```
-
-Minimal loop concept:
+This step is implemented by the framework itself — no external tool is called. The orchestrator generates a Markdown loop runbook in `docs/loops/`; you (the agent) follow it. The loop shape is:
 
 ```text
 load_context -> plan -> implement_small_step -> verify -> retry_or_escalate -> memory_update -> done
 ```
 
-## Practical Use
+## Selecting a Loop
 
-For normal Claude Code project work, start with Markdown runbooks in `docs/loops/`.
-
-Use LangGraph when:
-
-- the loop must run repeatedly;
-- multiple states or branches are needed;
-- retry and escalation policy must be explicit;
-- the loop should later become a service or CI workflow.
-
-## Existing Requirement Docs
-
-If specs were generated from existing requirement docs, select a loop per feature:
+For normal project work, follow the Markdown runbook in `docs/loops/`. Pick or create one per task type:
 
 - bug or defect: `docs/loops/bugfix-loop.md`;
 - new feature: create `docs/loops/feature-slice-loop.md`;

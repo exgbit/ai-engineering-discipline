@@ -1,19 +1,11 @@
 ---
 name: ai-memory
-description: "Memory step for AI engineering discipline. Use to persist project rules, module boundaries, pitfalls, requirement indexes, and durable agent memory. Default framework: Mem0 plus local docs/memory."
+description: "Memory step for AI engineering discipline. Use to persist project rules, module boundaries, pitfalls, requirement indexes, and durable agent memory."
 ---
 
 # AI Memory
 
-Use Mem0 as the default programmatic memory framework when cross-session or cross-agent memory is needed.
-
-Install:
-
-```bash
-python -m pip install --user mem0ai
-```
-
-For normal repositories, write local Markdown memory first:
+This step is implemented by the framework itself — no external tool is called. Memory lives as durable Markdown in `docs/memory/`; you (the agent) write real entries there:
 
 - `docs/memory/project-rules.md`
 - `docs/memory/module-map.md`

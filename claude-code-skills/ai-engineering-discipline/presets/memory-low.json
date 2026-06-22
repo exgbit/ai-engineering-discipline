@@ -4,20 +4,17 @@
   "risk": "low",
   "description": "Memory-only request for organizing project rules, module maps, or pitfalls.",
   "spec": {
-    "framework": "github-spec-kit",
     "mode": "memory",
     "require_acceptance_criteria": false,
     "read_existing_docs": true
   },
   "loop": {
-    "framework": "langgraph",
     "runbook": "memory-loop",
     "max_retries": 1,
     "human_gate": "on_conflict",
     "checkpoint": false
   },
   "verify": {
-    "framework": "semgrep",
     "semgrep_config": "auto",
     "severity": "warning",
     "native_tests": false,
@@ -25,10 +22,12 @@
     "require_source_consistency": true
   },
   "memory": {
-    "framework": "mem0",
     "local_memory": true,
     "mem0_write": false,
     "write_pitfalls": "if_evidence_exists",
-    "tags": ["memory", "low-risk"]
+    "tags": [
+      "memory",
+      "low-risk"
+    ]
   }
 }
