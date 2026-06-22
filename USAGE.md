@@ -151,6 +151,7 @@ S=.claude/skills/ai-engineering-discipline/scripts/ai_discipline.py
 python $S run     .  --task feature --name "退款审批" --requirements docs/req.md   # 一条龙:建请求+生成产物+验证+报告
 python $S request .  --task feature --name "退款审批" --requirements docs/req.md   # 只建请求+生成产物
 python $S execute .  --run-native-checks                                          # 跑验证
+python $S execute .  --run-native-checks --run-diff-coverage                      # 验证 + diff-coverage(改动行是否被测试真执行,需覆盖率工具)
 python $S verify  .                                                               # 强制跑全部检查
 python $S report  .                                                               # 刷新汇总报告
 python $S metrics .                                                               # 聚合多次/多项目的指标

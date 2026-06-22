@@ -672,6 +672,8 @@ def build_execute_args(args: argparse.Namespace, target: Path) -> list[str]:
         command_args.append("--run-semgrep")
     if run_native_checks:
         command_args.append("--run-native-checks")
+    if getattr(args, "run_diff_coverage", False):
+        command_args.append("--run-diff-coverage")
     if resolved_bool(args, target, "fail_on_verify_failure", False):
         command_args.append("--fail-on-verify-failure")
     command_args.extend(["--timeout-seconds", str(resolved_timeout(args, target))])
@@ -802,6 +804,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--no-run-semgrep", dest="run_semgrep", action="store_false")
     run.add_argument("--run-native-checks", dest="run_native_checks", action="store_true", default=None)
     run.add_argument("--no-run-native-checks", dest="run_native_checks", action="store_false")
+    run.add_argument("--run-diff-coverage", dest="run_diff_coverage", action="store_true", default=False, help="diff-coverage: check changed lines are executed by tests (needs a coverage tool).")
     run.add_argument("--timeout-seconds", type=int)
     run.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
     run.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
@@ -820,6 +823,7 @@ def build_parser() -> argparse.ArgumentParser:
     execute.add_argument("--no-run-semgrep", dest="run_semgrep", action="store_false")
     execute.add_argument("--run-native-checks", dest="run_native_checks", action="store_true", default=None)
     execute.add_argument("--no-run-native-checks", dest="run_native_checks", action="store_false")
+    execute.add_argument("--run-diff-coverage", dest="run_diff_coverage", action="store_true", default=False, help="diff-coverage: check changed lines are executed by tests (needs a coverage tool).")
     execute.add_argument("--timeout-seconds", type=int)
     execute.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
     execute.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")

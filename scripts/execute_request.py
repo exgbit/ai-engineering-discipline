@@ -852,6 +852,7 @@ def verification_gate_details(
     request: ManagedRequest,
     semgrep: CommandResult | None,
     native: list[CommandResult],
+    diff_cov: dict | None = None,
 ) -> dict[str, object]:
     required = required_verify_checks(request)
     regression_outcome = native_test_outcome(native)  # 全套测试真跑且过 = 回归已验证
@@ -958,6 +959,22 @@ def verification_gate_details(
         if manual_check == "failing_test_or_trace" and test_evidence_ok is not None:
             continue
         needs_human_checks.append(manual_check)
+
+    # diff-coverage:启用时,改动的可执行行没被测试执行到 → gap。默认标 uncovered(不阻断);
+    # preset require_diff_coverage 时升级为 blocking。fail-closed:工具不可用 → uncovered,不静默通过。
+    require_dc = bool(request.verify_params.get("require_diff_coverage"))
+    if require_dc or diff_cov is not None:
+        if diff_cov is None or not diff_cov.get("available"):
+            reason = (diff_cov or {}).get("reason", "not run")
+            uncovered_checks.append(f"diff-coverage (coverage tool unavailable: {reason})")
+        else:
+            gap = sum(len(v) for v in (diff_cov.get("uncovered_lines") or {}).values())
+            if gap:
+                msg = f"diff-coverage: {gap} changed executable line(s) not executed by tests"
+                if require_dc:
+                    blocking_reasons.append(msg)
+                else:
+                    uncovered_checks.append(msg)
 
     blocking_reasons = sorted(set(blocking_reasons))
     uncovered_checks = sorted(set(uncovered_checks))
@@ -1420,14 +1437,15 @@ def write_verification_results(
     semgrep: CommandResult | None,
     native: list[CommandResult],
     actions: list[str],
-) -> None:
+    diff_cov: dict | None = None,
+):
     if semgrep is None and not native:
-        return
+        return None
     verify_dir = target / "docs" / "verify"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     semgrep_summary = parse_semgrep_summary(semgrep.stdout) if semgrep else None
     overall_status, overall_reason = verification_rollup(semgrep, native)
-    gate_details = verification_gate_details(request, semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native, diff_cov)
     payload: dict[str, object] = {
         "created": now,
         "request": {
@@ -1442,6 +1460,7 @@ def write_verification_results(
         "semgrep": result_to_dict(semgrep) if semgrep else None,
         "semgrep_summary": semgrep_summary,
         "native_checks": [result_to_dict(item) for item in native],
+        "diff_coverage": diff_cov,
     }
     write_json_artifact(verify_dir / "verification-results.json", payload, actions)
 
@@ -1857,6 +1876,7 @@ def main() -> int:
     parser.add_argument("--skip-init", action="store_true", help="Do not run init_project.py or inspect_project.py.")
     parser.add_argument("--run-semgrep", action="store_true", help="Run Semgrep and write structured results to docs/verify/.")
     parser.add_argument("--run-native-checks", action="store_true", help="Run detected native test/lint/typecheck/build commands.")
+    parser.add_argument("--run-diff-coverage", action="store_true", help="Run diff-coverage: check changed lines are executed by tests (needs a coverage tool; degrades to uncovered if absent).")
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="Timeout per verification command.")
     parser.add_argument("--fail-on-verify-failure", action="store_true", help="Exit non-zero after writing results if overall verification is blocked.")
     args = parser.parse_args()
@@ -1910,7 +1930,15 @@ def main() -> int:
                 )
             )
             actions.append("verify native: skipped no recognized commands")
-    gate = write_verification_results(target, request, semgrep_result, native_results, actions)
+    diff_cov = None
+    if args.run_diff_coverage or request.verify_params.get("require_diff_coverage"):
+        changed = git_changed_files(target)
+        code_changed = [f for f in (changed or []) if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
+        if code_changed:
+            from diff_coverage import diff_coverage_result
+            diff_cov = diff_coverage_result(target, code_changed)
+            actions.append(f"diff-coverage: {'available' if diff_cov.get('available') else 'unavailable'}")
+    gate = write_verification_results(target, request, semgrep_result, native_results, actions, diff_cov)
     update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
     write_loop_run_log(target, request, semgrep_result, native_results, actions)
     write_memory_candidates(target, request, semgrep_result, native_results, actions)

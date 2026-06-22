@@ -77,7 +77,7 @@ def main() -> int:
         r = run_cli(
             "run", str(target),
             "--task", "feature", "--name", "smoke",
-            "--skip-init", "--no-run-semgrep", "--run-native-checks",
+            "--skip-init", "--no-run-semgrep", "--run-native-checks", "--run-diff-coverage",
         )
         check(r.returncode == 0, f"run exit={r.returncode}\n{r.stderr}")
 
@@ -109,6 +109,9 @@ def main() -> int:
             not any("regression unverified" in b for b in vr["blocking_reasons"]),
             "a green suite should not demand a hand-filled regression plan",
         )
+
+        # 7) diff-coverage:启用后字段写入 verification-results,集成不崩(无 git/无工具时为 None/unavailable)
+        check("diff_coverage" in vr, "verification-results.json missing diff_coverage key")
 
     print(f"SMOKE OK on {sys.platform}")
     return 0

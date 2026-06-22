@@ -47,6 +47,7 @@ SCRIPT_FILES = [
     "init_project.py",
     "inspect_project.py",
     "build_test_index.py",
+    "diff_coverage.py",
 ]
 
 # 单文件映射:顶层相对路径 → skill 内相对路径(必须项)
