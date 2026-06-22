@@ -23,7 +23,6 @@
   },
   "memory": {
     "local_memory": true,
-    "mem0_write": false,
     "write_pitfalls": "if_evidence_exists",
     "tags": [
       "memory",

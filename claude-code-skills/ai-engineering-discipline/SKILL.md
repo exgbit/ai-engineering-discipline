@@ -47,7 +47,7 @@ This is the primary way to use the framework. The user should never have to pick
      --task <inferred> --name "<inferred name>" --requirements docs/requirements/<slug>.md
    ```
 4. **Read the code, then fill the spec yourself.** First read the source files the request touches to understand the existing structure (the scripts do not analyze code — that is your job). Then complete the generated spec's `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding: give a real Impact Analysis (which modules/functions are affected and how), and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
-5. **Implement in small steps, with tests.** Once the spec and loop are ready, implement the change in scoped steps following the loop. For feature/bugfix/refactor work you MUST add or update tests for the change — the verification gate blocks a code change that ships without a matching test change. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
+5. **Implement in small steps, with tests.** Once the spec and loop are ready, implement the change in scoped steps following the loop. For feature/bugfix/refactor work you MUST add or update tests that actually exercise the changed code (they reference the changed functions/classes) — the gate blocks a code change with no test, and also blocks tests that do not reference the change (e.g. an empty or unrelated test). Before editing code, state the plan in one plain sentence and proceed unless the user objects.
 6. **Verify, then refresh the report.** Run native checks (and Semgrep if installed), then refresh the pilot report so it is not left showing a stale pre-verify snapshot:
    ```bash
    python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks
@@ -135,7 +135,7 @@ This resolves framework parameters from presets and writes:
 docs/ai-engineering/current-request.md
 ```
 
-Then execute that request. Do not ask the user for Spec Kit, LangGraph, Semgrep, or Mem0 parameters unless the preset is blocked.
+Then execute that request. Do not ask the user for low-level verification parameters unless the preset is blocked.
 
 For the simplest entry, omit `--preset` or pass `--preset standard`, `--preset default`, or `--preset auto`; all select the task+risk default preset.
 
@@ -228,16 +228,11 @@ After implementation:
 3. Do not present generated explanations as verification evidence.
 4. Ensure the generated impact analysis and regression matrix are complete for already-developed codebases.
 
-## Default Open-Source Adapters
+## Optional Semgrep Scan
 
-When the user asks to automatically connect mature frameworks, use this default stack:
+The framework needs no external tools. The only optional one is Semgrep (the Verify security gate); if it is absent the scan is reported as skipped, not failed. Spec / Loop / Memory use the framework's own templates and need nothing installed.
 
-- Spec: GitHub Spec Kit
-- Loop: LangGraph
-- Verify: Semgrep
-- Memory: Mem0
-
-Run from the installed Claude Code skill:
+Check or install Semgrep from the installed Claude Code skill (add `--execute` to install):
 
 ```bash
 python .claude/skills/ai-engineering-discipline/scripts/install_default_adapters.py .

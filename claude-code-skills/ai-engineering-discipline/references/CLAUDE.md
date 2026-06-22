@@ -170,16 +170,11 @@ Track these weekly during adoption:
 
 Use `scripts/summarize_metrics.py` when a metrics CSV is available.
 
-## Default Open-Source Adapters
+## Optional External Tool
 
-Prefer this default adapter stack unless the target project already standardizes on another framework:
+The framework needs no external tools to run. The only optional one is Semgrep (the security-scan gate in the Verify step); if it is not installed the scan is reported as skipped, not failed. Spec / Loop / Memory are implemented by the framework's own Markdown templates plus the AI agent — no external tool is called there.
 
-- `Spec`: GitHub Spec Kit
-- `Loop`: LangGraph
-- `Verify`: Semgrep
-- `Memory`: Mem0
-
-Use `scripts/install_default_adapters.py <target>` to generate an adapter report. Use `--execute` only when the user explicitly wants installation.
+Use `scripts/install_default_adapters.py <target> --execute` only if the user wants the Semgrep scan; it installs nothing else.
 
 ## Default Behavior
 
@@ -187,7 +182,7 @@ When asked to "implement", "fix", "refactor", or "build":
 
 1. Prefer a managed request in `docs/ai-engineering/current-request.md`.
 2. If no request exists, create one with `scripts/run_request.py` or the installed skill script.
-3. Use preset-resolved parameters instead of asking the user for Spec Kit, LangGraph, Semgrep, or Mem0 flags.
+3. Use preset-resolved parameters instead of asking the user for low-level verification flags.
 4. Locate or create the spec.
 5. Select or define the loop.
 6. Implement within scope only when the request allows execution.

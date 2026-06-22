@@ -23,7 +23,6 @@
   },
   "memory": {
     "local_memory": true,
-    "mem0_write": false,
     "write_pitfalls": "never",
     "tags": [
       "docs",

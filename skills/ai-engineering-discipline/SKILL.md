@@ -47,7 +47,7 @@ This is the primary way to use the framework. The user should never have to pick
      --task <inferred> --name "<inferred name>" --requirements docs/requirements/<slug>.md
    ```
 4. **Read the code, then fill the spec yourself.** First read the source files the request touches to understand the existing structure (the scripts do not analyze code — that is your job). Then complete the generated spec's `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding: give a real Impact Analysis (which modules/functions are affected and how), and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
-5. **Implement in small steps, with tests.** Once the spec and loop are ready, implement the change in scoped steps following the loop. For feature/bugfix/refactor work you MUST add or update tests for the change — the verification gate blocks a code change that ships without a matching test change. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
+5. **Implement in small steps, with tests.** Once the spec and loop are ready, implement the change in scoped steps following the loop. For feature/bugfix/refactor work you MUST add or update tests that actually exercise the changed code (they reference the changed functions/classes) — the gate blocks a code change with no test, and also blocks tests that do not reference the change (e.g. an empty or unrelated test). Before editing code, state the plan in one plain sentence and proceed unless the user objects.
 6. **Verify, then refresh the report.** Run native checks (and Semgrep if installed), then refresh the pilot report so it is not left showing a stale pre-verify snapshot:
    ```bash
    python <skill_dir>/scripts/ai_discipline.py execute . --run-native-checks
@@ -240,16 +240,9 @@ The generated artifacts include impact analysis and regression matrices for alre
 
 If verification flags are enabled, treat `docs/verify/verification-results.json` as the structured evidence source and `docs/verify/verification-results.md` as the review summary.
 
-### 5. Install Default Open-Source Adapters
+### 5. Optional Semgrep Scan
 
-When the user wants mature GitHub/open-source frameworks automatically connected, use the default stack:
-
-- Spec: GitHub Spec Kit
-- Loop: LangGraph
-- Verify: Semgrep
-- Memory: Mem0
-
-Run from the framework repository:
+The framework needs no external tools. The only optional one is Semgrep (the Verify security gate); if it is absent the scan is reported as skipped, not failed. Spec / Loop / Memory use the framework's own templates and need nothing installed. Install Semgrep only (with `--execute`) from the framework repository:
 
 ```bash
 python scripts/install_default_adapters.py <target-project-path>

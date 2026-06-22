@@ -25,7 +25,6 @@
   },
   "memory": {
     "local_memory": true,
-    "mem0_write": true,
     "write_pitfalls": "always_if_learning",
     "tags": [
       "migration",

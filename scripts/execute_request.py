@@ -735,6 +735,55 @@ def is_code_file(path: str) -> bool:
     return path.endswith(_CODE_EXTS)
 
 
+# 从改动代码里提取被定义的符号(函数/类/方法名),用于核对测试是否真的引用了改动
+_SYMBOL_DEF_RE = re.compile(
+    r"^[+\s]*(?:export\s+)?(?:public\s+|private\s+|static\s+)*(?:async\s+)?"
+    r"(?:def|class|func|function|fn|interface|type|struct|trait|impl)\s+([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def _added_lines(target: Path, path: str) -> list[str]:
+    """该文件相对基线新增/改动的行:已跟踪取 git diff 的 + 行,新文件取全文。"""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(target), "diff", "HEAD", "--unified=0", "--", path],
+            capture_output=True, text=True, timeout=30,
+        )
+        added = [ln[1:] for ln in result.stdout.splitlines() if ln.startswith("+") and not ln.startswith("+++")]
+        if added:
+            return added
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        return (target / path).read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return []
+
+
+def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
+    symbols: set[str] = set()
+    for f in code_files:
+        for line in _added_lines(target, f):
+            match = _SYMBOL_DEF_RE.match(line)
+            if match:
+                symbols.add(match.group(1))
+    return symbols
+
+
+def tests_reference_symbols(target: Path, test_files: list[str], symbols: set[str]) -> bool:
+    """改动的测试文件是否引用了任一改动符号。提不出符号时返回 True(不阻断)。"""
+    if not symbols:
+        return True
+    for tf in test_files:
+        try:
+            content = (target / tf).read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if any(re.search(rf"\b{re.escape(s)}\b", content) for s in symbols):
+            return True
+    return False
+
+
 def verification_gate_details(
     request: ManagedRequest,
     semgrep: CommandResult | None,
@@ -803,7 +852,8 @@ def verification_gate_details(
     # 测试配套门禁(实质质量,非 markdown 扫描):feature/bugfix/refactor 改了代码
     # 就必须配套测试改动,否则阻断;非 git 项目无法核实,降级为未覆盖提示
     if request.task in TASKS_NEEDING_TESTS:
-        changed = git_changed_files(request.path.parents[2])
+        repo = request.path.parents[2]
+        changed = git_changed_files(repo)
         if changed is None:
             uncovered_checks.append("test-coverage (cannot verify: target is not a git repository)")
         else:
@@ -813,6 +863,14 @@ def verification_gate_details(
                 blocking_reasons.append(
                     f"code changed without a matching test change ({len(code_changed)} code file(s), 0 test files)"
                 )
+            elif code_changed and test_changed:
+                # 不只看"有没有测试文件变动",还看测试是否引用了改动代码的符号
+                # (堵住空测试 / 不相干测试骗过门禁)
+                symbols = changed_code_symbols(repo, code_changed)
+                if not tests_reference_symbols(repo, test_changed, symbols):
+                    blocking_reasons.append(
+                        "the changed tests do not reference any changed code symbol — the test may not actually cover the change"
+                    )
 
     blocking_reasons = sorted(set(blocking_reasons))
     uncovered_checks = sorted(set(uncovered_checks))

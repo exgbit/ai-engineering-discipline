@@ -23,7 +23,6 @@
   },
   "memory": {
     "local_memory": true,
-    "mem0_write": false,
     "write_pitfalls": "only_if_failure",
     "tags": [
       "refactor",

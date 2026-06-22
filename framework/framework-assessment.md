@@ -39,7 +39,7 @@ This framework centralizes those decisions:
 ## Current Limitations
 
 - Semgrep and native-check results are written to structured verification artifacts and merged back into generated `test-matrix.md`; exact test-case mapping still needs project-specific evidence.
-- The test gate checks that a test file changed alongside code; it does not yet verify that the test meaningfully covers the change.
+- The test gate checks that a changed test references the changed code's symbols (functions/classes), which blocks empty or unrelated tests; it does not yet run coverage to confirm the changed lines are actually executed.
 - Presets cover common task/risk combinations, not every company policy.
 - `execute_request.py` intentionally avoids business code changes and destructive operations by default.
 - The framework provides discipline and gates; the actual code understanding, spec content, and judgement are done by the AI agent, not the framework.
@@ -64,6 +64,6 @@ Use a four-week pilot before making claims about impact.
 ## Recommended Next Optimizations
 
 1. Add exact requirement-to-test mapping instead of global verification status propagation.
-2. Upgrade the test gate from "a test file changed" to "the test actually covers the change" (coverage or semantic check).
+2. Add real diff-coverage on top of the current symbol-reference check, to confirm the changed lines are executed by the tests.
 3. Add richer policy controls for which native commands are allowed per company.
 4. Add company-specific preset overlays.
