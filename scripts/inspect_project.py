@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import argparse
+import shutil
 from pathlib import Path
 
 
@@ -76,7 +77,10 @@ def detect_commands(root: Path) -> list[str]:
         commands.append("go test ./...")
 
     if (root / "pyproject.toml").exists() or (root / "requirements.txt").exists():
-        commands.append("pytest")
+        if (root / "pytest.ini").exists() or shutil.which("pytest"):
+            commands.append("pytest")
+        else:
+            commands.append("python -m unittest discover")
 
     if (root / "Cargo.toml").exists():
         commands.append("cargo test")

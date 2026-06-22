@@ -46,13 +46,13 @@ This is the primary way to use the framework. The user should never have to pick
    python <skill_dir>/scripts/ai_discipline.py run . \
      --task <inferred> --name "<inferred name>" --requirements docs/requirements/<slug>.md
    ```
-4. **Fill the spec yourself.** The generated spec has `TBD` placeholders (requirements table, impact analysis, acceptance criteria, test plan). Complete them from your understanding of the request and the codebase. Never hand `TBD`s back to the user.
+4. **Read the code, then fill the spec yourself.** First read the source files the request touches to understand the existing structure (the scripts do not analyze code — that is your job). Then complete the generated spec's `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding: give a real Impact Analysis (which modules/functions are affected and how), and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
 5. **Implement in small steps.** Once the spec and loop are ready, implement the change in scoped steps following the loop. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
 6. **Verify.** Run native checks (and Semgrep if installed) and read `can_merge` / blocking reasons:
    ```bash
    python <skill_dir>/scripts/ai_discipline.py execute . --run-native-checks
    ```
-7. **Report in plain language.** Summarize what changed, the verification result, and the changed files. Update memory only with durable lessons.
+7. **Report in plain language.** Summarize what changed, the verification result, and the changed files. If `docs/verify/verification-results.json` shows `coverage_complete: false`, tell the user in plain words which required checks were not covered (e.g. "tests pass, but the security scan isn't installed so it didn't run") — never present "done" as fully verified when it isn't. Update memory only with durable lessons.
 
 **If the user already has a requirements folder** (many `.md` files and/or images, screenshots, diagrams, PDFs), use it instead of inventing the requirement: pass the whole folder to `--requirements <folder>` — it ingests text docs and images/PDFs alike. Then **read every Markdown file and visually inspect every image/PDF in it** to extract the requirements, and fold them into the spec. Image/PDF content is understood by you visually; the scripts only track the files, they do not read images.
 

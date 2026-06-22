@@ -670,11 +670,21 @@ def impact_analysis_missing_parts(request: ManagedRequest) -> list[str]:
 
 
 def regression_matrix_complete(request: ManagedRequest) -> bool:
-    if not request.verify_matrix_path.exists():
-        return False
-    text = request.verify_matrix_path.read_text(encoding="utf-8", errors="ignore")
-    regression = markdown_section(text, "Regression Matrix")
-    return section_is_complete(regression)
+    # 接受两处任一已填:verify 的 Regression Matrix,或 spec 的 Regression Plan
+    # (ai-build 流程让 agent 填 spec,二者口径需一致,避免"按文档填了仍判未完成")
+    if request.verify_matrix_path.exists():
+        text = request.verify_matrix_path.read_text(encoding="utf-8", errors="ignore")
+        if section_is_complete(markdown_section(text, "Regression Matrix")):
+            return True
+    if request.spec_path.exists():
+        spec = request.spec_path.read_text(encoding="utf-8", errors="ignore")
+        if section_is_complete(markdown_section(spec, "Regression Plan")):
+            return True
+    return False
+
+
+# 人工类 required 检查:脚本无法自动完成,列为"需人工确认",不锁死 can_merge
+HUMAN_CHECKS = {"regression_tests", "failing_test_or_trace", "manual_validation", "source_consistency"}
 
 
 def verification_gate_details(
@@ -684,33 +694,37 @@ def verification_gate_details(
 ) -> dict[str, object]:
     required = required_verify_checks(request)
     executed: list[dict[str, object]] = []
-    skipped_required: list[str] = []
-    blocking_reasons: list[str] = []
+    blocking_reasons: list[str] = []   # 真问题(测试失败/安全发现/文档未填)→ 阻断 can_merge
+    uncovered_checks: list[str] = []   # 自动工具不可用或未运行 → 仅提示,不阻断
+    needs_human_checks: list[str] = []  # 人工类检查 → 仅提示,不阻断
 
+    # 文档类(agent 能补)未完成 → 阻断
     impact_missing = impact_analysis_missing_parts(request)
     if impact_missing:
-        skipped_required.append("impact_analysis")
         blocking_reasons.append(f"impact analysis incomplete: {', '.join(impact_missing)}")
-    if not regression_matrix_complete(request):
-        skipped_required.append("regression_matrix")
-        blocking_reasons.append("regression matrix incomplete")
+    if "regression_matrix" in required and not regression_matrix_complete(request):
+        blocking_reasons.append("regression incomplete (fill the spec's Regression Plan)")
 
+    # semgrep(自动工具):失败/有发现 → 阻断;不可用或未运行 → 仅提示
     if semgrep:
         executed.append({"name": "semgrep", "required": "semgrep" in required, "status": semgrep.status})
         if semgrep.status in {"failed", "timeout"}:
             blocking_reasons.append(f"semgrep {semgrep.status}")
-        if semgrep.status == "skipped" and "semgrep" in required:
-            skipped_required.append("semgrep")
-        summary = parse_semgrep_summary(semgrep.stdout)
-        if summary.get("parse_error"):
-            blocking_reasons.append("semgrep output parse error")
-        if summary.get("findings", 0):
-            blocking_reasons.append(f"semgrep findings: {summary.get('findings')}")
-        if summary.get("errors", 0):
-            blocking_reasons.append(f"semgrep scan errors: {summary.get('errors')}")
+        elif semgrep.status == "skipped":
+            if "semgrep" in required:
+                uncovered_checks.append("semgrep (tool unavailable)")
+        else:
+            summary = parse_semgrep_summary(semgrep.stdout)
+            if summary.get("parse_error"):
+                blocking_reasons.append("semgrep output parse error")
+            if summary.get("findings", 0):
+                blocking_reasons.append(f"semgrep findings: {summary.get('findings')}")
+            if summary.get("errors", 0):
+                blocking_reasons.append(f"semgrep scan errors: {summary.get('errors')}")
     elif "semgrep" in required:
-        skipped_required.append("semgrep")
+        uncovered_checks.append("semgrep (not run)")
 
+    # native:失败 → 阻断;探测不到可运行命令 → 仅提示
     native_ran = False
     build_ran = False
     for item in native:
@@ -726,28 +740,37 @@ def verification_gate_details(
             blocking_reasons.append(f"{item.name} {item.status}")
 
     if "native_checks" in required and (not native or not native_ran or all(item.status == "skipped" for item in native)):
-        skipped_required.append("native_checks")
-    # build 只有在框架能为该栈探测出 build 命令(build_ran)、且它被跳过时才算缺失;
-    # 对没有独立 build 概念的栈(如 python)不强求,避免 can_merge 永久死锁
-    if "build" in required and build_ran and any(
-        "build" in item.name.lower() and item.status == "skipped" for item in native
-    ):
-        skipped_required.append("build")
+        uncovered_checks.append("native_checks (no runnable test command found)")
+    if "build" in required:
+        # required 的 build 即使无法运行也要如实报告,不能从所有列表里静默蒸发
+        if not build_ran:
+            uncovered_checks.append("build (no build step detected for this stack)")
+        elif any("build" in item.name.lower() and item.status == "skipped" for item in native):
+            uncovered_checks.append("build (not run)")
 
-    for manual_check in ["regression_tests", "failing_test_or_trace", "manual_validation", "source_consistency"]:
+    for manual_check in sorted(HUMAN_CHECKS):
         if manual_check in required:
-            skipped_required.append(manual_check)
+            needs_human_checks.append(manual_check)
 
-    skipped_required = sorted(set(skipped_required))
     blocking_reasons = sorted(set(blocking_reasons))
-    overall_status, _ = verification_rollup(semgrep, native)
-    can_merge = overall_status == "verified" and not skipped_required and not blocking_reasons
+    uncovered_checks = sorted(set(uncovered_checks))
+    needs_human_checks = sorted(set(needs_human_checks))
+    # 两个不同的信号,都如实给出:
+    # - can_merge:没有已知阻断问题(测试没失败 / 没安全发现 / 文档已填)
+    # - coverage_complete:所有 required 检查都真正运行并通过(没有未覆盖 / 不需人工)
+    # 绿灯(can_merge)但 coverage 不全时,报告必须列出未覆盖项,不静默放行
+    can_merge = not blocking_reasons
+    coverage_complete = not uncovered_checks and not needs_human_checks
     return {
         "required_checks": required,
         "executed_checks": executed,
-        "skipped_required_checks": skipped_required,
         "blocking_reasons": blocking_reasons,
+        "uncovered_checks": uncovered_checks,
+        "needs_human_checks": needs_human_checks,
+        # 兼容旧字段(聚合端读取):未覆盖 + 需人工
+        "skipped_required_checks": sorted(set(uncovered_checks + needs_human_checks)),
         "can_merge": can_merge,
+        "coverage_complete": coverage_complete,
     }
 
 
@@ -868,7 +891,11 @@ def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[
             commands.append(("go:build", ["go", "build", "./..."]))
 
     if (target / "pyproject.toml").exists() or (target / "requirements.txt").exists() or (target / "pytest.ini").exists():
-        commands.append(("python:pytest", ["pytest"]))
+        # 优先 pytest(若项目用 pytest 或本机已装),否则回退标准库 unittest(总能跑)
+        if (target / "pytest.ini").exists() or shutil.which("pytest"):
+            commands.append(("python:pytest", ["pytest"]))
+        else:
+            commands.append(("python:unittest", [sys.executable, "-m", "unittest", "discover"]))
 
     if (target / "Cargo.toml").exists():
         commands.append(("rust:cargo-test", ["cargo", "test"]))
@@ -993,9 +1020,11 @@ def write_verification_results(
         "",
         f"- Overall status: `{overall_status}`",
         f"- Reason: {overall_reason}",
-        f"- Can merge: `{str(gate_details['can_merge']).lower()}`",
-        f"- Skipped required checks: `{', '.join(gate_details['skipped_required_checks']) if gate_details['skipped_required_checks'] else 'none'}`",
+        f"- Can merge (no blocking issues): `{str(gate_details['can_merge']).lower()}`",
+        f"- Fully verified (all required checks covered): `{str(gate_details.get('coverage_complete', False)).lower()}`",
         f"- Blocking reasons: `{', '.join(gate_details['blocking_reasons']) if gate_details['blocking_reasons'] else 'none'}`",
+        f"- Uncovered required checks (tool missing / not run): `{', '.join(gate_details.get('uncovered_checks', [])) if gate_details.get('uncovered_checks') else 'none'}`",
+        f"- Needs human verification: `{', '.join(gate_details.get('needs_human_checks', [])) if gate_details.get('needs_human_checks') else 'none'}`",
         "",
         "| Check | Status | Exit | Duration |",
         "|---|---|---|---|",
@@ -1221,9 +1250,11 @@ Created: {now}
 
 - Verification status: `{status}`
 - Reason: {reason}
-- Can merge: `{str(gate_details["can_merge"]).lower()}`
-- Skipped required checks: `{", ".join(gate_details["skipped_required_checks"]) if gate_details["skipped_required_checks"] else "none"}`
+- Can merge (no blocking issues): `{str(gate_details["can_merge"]).lower()}`
+- Fully verified (all required checks covered): `{str(gate_details.get("coverage_complete", False)).lower()}`
 - Blocking reasons: `{", ".join(gate_details["blocking_reasons"]) if gate_details["blocking_reasons"] else "none"}`
+- Uncovered required checks (tool missing / not run): `{", ".join(gate_details.get("uncovered_checks", [])) if gate_details.get("uncovered_checks") else "none"}`
+- Needs human verification: `{", ".join(gate_details.get("needs_human_checks", [])) if gate_details.get("needs_human_checks") else "none"}`
 
 ## Next Action
 

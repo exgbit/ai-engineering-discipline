@@ -27,7 +27,7 @@ Otherwise follow the `ai-engineering-discipline` skill's "Default Entry: One Pla
      --task <inferred> --name "<inferred name>" --requirements docs/requirements/<slug>.md
    ```
 
-4. **Fill the spec yourself.** Open the generated `docs/specs/<slug>.md` and complete its `TBD` placeholders (requirements table, impact analysis, acceptance criteria, test plan) from your understanding of the request and the codebase. Never hand `TBD`s back to the user.
+4. **Read the code, then fill the spec yourself.** First read the source files the request touches (the scripts do not analyze code). Then open the generated `docs/specs/<slug>.md` and complete its `TBD` placeholders (requirements, impact analysis, acceptance criteria, test plan) from that understanding — give a real Impact Analysis and fill `docs/memory/module-map.md` with the boundaries you found. Never hand `TBD`s back to the user.
 5. **Implement in small steps** following the generated loop. State the plan in one plain sentence before editing code, then proceed unless the user objects.
 6. **Verify**:
 
@@ -36,7 +36,7 @@ Otherwise follow the `ai-engineering-discipline` skill's "Default Entry: One Pla
    ```
 
    Read `docs/verify/verification-results.json` for `can_merge` and blocking reasons.
-7. **Report in plain language**: what changed, the verification result, and the changed files. Update memory only with durable lessons.
+7. **Report in plain language**: what changed, the verification result, and the changed files. If `docs/verify/verification-results.json` shows `coverage_complete: false`, tell the user in plain words which required checks were not covered (e.g. "tests pass, but the security scan isn't installed") — never present "done" as fully verified when it isn't. Update memory only with durable lessons.
 
 **If the request points to a folder of requirements** (many `.md` files and/or images, screenshots, diagrams, PDFs), pass that whole folder to `--requirements <folder>` instead of writing a new file in step 2. Then read every Markdown file and **visually inspect every image/PDF** in it to extract the requirements before filling the spec — image/PDF content is understood visually; the scripts only track the files.
 
