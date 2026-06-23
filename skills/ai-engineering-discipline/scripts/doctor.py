@@ -70,9 +70,10 @@ def command_content_check(target: Path, name: str, required_text: str) -> Check:
 
 
 def mcp_impact_check(target: Path) -> Check:
-    """可选:代码知识图谱 MCP 是否配置(给 agent 做影响分析用)。永不 fail——它是可选增强,
-    没配只回退到手填影响分析,不算安装问题。"""
+    """硬依赖:代码知识图谱 MCP(codebase-memory)。没装 → fail(框架要求强制安装);
+    AI_DISCIPLINE_GRAPH_OPTIONAL=1 时降级为 warn(框架自测 / 无法编译二进制的环境)。"""
     import json
+    import os
     import shutil
     item = "knowledge-graph MCP (impact analysis)"
     for cfg in (target / ".mcp.json", target / ".claude" / "mcp.json"):
@@ -87,9 +88,12 @@ def mcp_impact_check(target: Path) -> Check:
             "memory" in str(name).lower() or "graph" in str(name).lower() for name in servers
         ):
             return Check("ok", item, "MCP configured — graph-driven impact analysis available")
-    if shutil.which("codebase-memory-mcp") or shutil.which("codebase-memory"):
-        return Check("ok", item, "binary on PATH — graph-driven impact analysis available")
-    return Check("warn", item, "optional; not configured — impact analysis is hand-filled (not a problem)")
+    local = Path.home() / ".local" / "bin" / "codebase-memory-mcp"
+    if shutil.which("codebase-memory-mcp") or shutil.which("codebase-memory") or local.is_file():
+        return Check("ok", item, "binary found — graph-driven impact analysis available")
+    if os.environ.get("AI_DISCIPLINE_GRAPH_OPTIONAL"):
+        return Check("warn", item, "not installed (AI_DISCIPLINE_GRAPH_OPTIONAL set) — impact analysis is hand-filled")
+    return Check("fail", item, "required but not installed — build codebase-memory-mcp (see scripts/code_graph.py INSTALL_HINT)")
 
 
 def collect_checks(target: Path) -> list[Check]:

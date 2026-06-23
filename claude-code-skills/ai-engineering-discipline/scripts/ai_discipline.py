@@ -7,6 +7,7 @@ import argparse
 import csv
 import datetime as dt
 import json
+import os
 import re
 import subprocess
 import sys
@@ -627,6 +628,9 @@ def command_start(args: argparse.Namespace) -> int:
     code = run_python(script_path("inspect_project.py"), inspect_args)
     if code != 0:
         return code
+    # 新项目从头建知识图谱:装了就建初始图(best-effort,没装/失败不挡 start);后续每次 execute 增量刷新
+    if not os.environ.get("AI_DISCIPLINE_GRAPH_OPTIONAL"):
+        run_python(script_path("code_graph.py"), ["index", str(target)])
     return run_python(script_path("doctor.py"), [str(target)])
 
 

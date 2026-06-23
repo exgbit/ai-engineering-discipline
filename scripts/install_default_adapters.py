@@ -190,8 +190,10 @@ def main() -> int:
             statuses[layer_name] = "not selected"
             continue
         if not layer.get("runtime_integrated", False):
-            if layer.get("agent_integrated", False):
-                # agent 经 MCP 用的可选层(impact):框架不调,但 agent 用,别误标 reference-only
+            if layer.get("required"):
+                # 硬依赖但非 pip 安装(知识图谱 MCP,需编译):框架通过 scripts/code_graph.py 调 CLI
+                statuses[layer_name] = "REQUIRED (build separately — see scripts/code_graph.py)"
+            elif layer.get("agent_integrated", False):
                 statuses[layer_name] = "optional MCP (used by the agent, not the framework)"
             else:
                 # 风格参考层(Spec/Loop/Memory):框架不调用它们,无需安装

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,8 @@ def run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         cwd=str(cwd) if cwd else None,
+        # 框架自测不依赖知识图谱二进制(CI/无编译环境):显式关掉硬强制,测框架逻辑本身
+        env={**os.environ, "AI_DISCIPLINE_GRAPH_OPTIONAL": "1"},
     )
     return proc
 

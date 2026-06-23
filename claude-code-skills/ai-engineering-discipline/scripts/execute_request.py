@@ -855,6 +855,7 @@ def verification_gate_details(
     semgrep: CommandResult | None,
     native: list[CommandResult],
     diff_cov: dict | None = None,
+    impact: dict | None = None,
 ) -> dict[str, object]:
     required = required_verify_checks(request)
     regression_outcome = native_test_outcome(native)  # 全套测试真跑且过 = 回归已验证
@@ -977,6 +978,20 @@ def verification_gate_details(
                     blocking_reasons.append(msg)
                 else:
                     uncovered_checks.append(msg)
+
+    # 知识图谱影响分析(硬依赖:框架要求装 codebase-memory):没装 → 阻断,要求先装;
+    # 装了 → 受影响接口 ∩ test-index 盲区(受影响但没测的)→ uncovered(advisory),agent 据此先补测试。
+    if request.task in TASKS_NEEDING_TESTS and impact is not None:
+        if not impact.get("available"):
+            blocking_reasons.append(
+                "codebase-memory knowledge-graph MCP is required but not installed "
+                "(run `python scripts/code_graph.py <target>` for the install hint)"
+            )
+        elif impact.get("untested"):
+            names = ", ".join(impact["untested"][:8])
+            uncovered_checks.append(
+                f"impact: {len(impact['untested'])} affected interface(s) without a guarding test: {names}"
+            )
 
     blocking_reasons = sorted(set(blocking_reasons))
     uncovered_checks = sorted(set(uncovered_checks))
@@ -1440,6 +1455,7 @@ def write_verification_results(
     native: list[CommandResult],
     actions: list[str],
     diff_cov: dict | None = None,
+    impact: dict | None = None,
 ):
     if semgrep is None and not native:
         return None
@@ -1447,7 +1463,7 @@ def write_verification_results(
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     semgrep_summary = parse_semgrep_summary(semgrep.stdout) if semgrep else None
     overall_status, overall_reason = verification_rollup(semgrep, native)
-    gate_details = verification_gate_details(request, semgrep, native, diff_cov)
+    gate_details = verification_gate_details(request, semgrep, native, diff_cov, impact)
     payload: dict[str, object] = {
         "created": now,
         "request": {
@@ -1463,6 +1479,7 @@ def write_verification_results(
         "semgrep_summary": semgrep_summary,
         "native_checks": [result_to_dict(item) for item in native],
         "diff_coverage": diff_cov,
+        "impact_graph": impact,
     }
     write_json_artifact(verify_dir / "verification-results.json", payload, actions)
 
@@ -1940,7 +1957,21 @@ def main() -> int:
             from diff_coverage import diff_coverage_result
             diff_cov = diff_coverage_result(target, code_changed)
             actions.append(f"diff-coverage: {'available' if diff_cov.get('available') else 'unavailable'}")
-    gate = write_verification_results(target, request, semgrep_result, native_results, actions, diff_cov)
+    # 知识图谱影响分析(硬依赖):需要测试的 task 一律算——没装则门禁阻断要求先装。
+    # AI_DISCIPLINE_GRAPH_OPTIONAL=1 关掉硬强制(框架自测 / 无法编译二进制的环境用),回退到不算 impact。
+    impact = None
+    if request.task in TASKS_NEEDING_TESTS and not os.environ.get("AI_DISCIPLINE_GRAPH_OPTIONAL"):
+        from code_graph import graph_available, detect_changes, impacted_symbol_names, impacted_untested, write_impact_report
+        if not graph_available():
+            impact = {"available": False}
+        else:
+            from build_test_index import refresh_test_index  # 先刷新盲区,impact 才能交叉"受影响但没测"
+            refresh_test_index(target, actions)
+            names = impacted_symbol_names(detect_changes(target))
+            impact = {"available": True, "impacted": names, "untested": impacted_untested(target, names)}
+            write_impact_report(target, impact)
+            actions.append(f"impact-graph: {len(names)} affected, {len(impact['untested'])} untested")
+    gate = write_verification_results(target, request, semgrep_result, native_results, actions, diff_cov, impact)
     update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
     write_loop_run_log(target, request, semgrep_result, native_results, actions)
     write_memory_candidates(target, request, semgrep_result, native_results, actions)
@@ -1953,8 +1984,8 @@ def main() -> int:
     if args.fail_on_verify_failure:
         # 退出码必须反映完整门禁(测试配套 / impact / 回归),而不只是 semgrep/native 进程状态;
         # 复用 write_verification_results 已算的 gate,不重复跑 git diff
-        if gate is None:  # 没跑 semgrep/native(无可验证结果)→ 现算一次(带上 diff_cov)
-            gate = verification_gate_details(request, semgrep_result, native_results, diff_cov)
+        if gate is None:  # 没跑 semgrep/native(无可验证结果)→ 现算一次(带上 diff_cov + impact)
+            gate = verification_gate_details(request, semgrep_result, native_results, diff_cov, impact)
         if not gate["can_merge"]:
             return 1
     return 0

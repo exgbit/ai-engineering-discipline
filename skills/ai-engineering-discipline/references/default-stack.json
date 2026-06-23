@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "default-ai-engineering-stack",
-  "description": "The framework needs no external tools to run. The only one it actually calls is Semgrep (the optional Verify security-scan gate). The optional `impact` layer is a code knowledge-graph MCP that the AGENT (not the framework) uses to drive impact analysis. Spec / Loop / Memory are implemented by the framework's own Markdown templates and the AI agent.",
+  "description": "The framework calls a code knowledge-graph MCP (codebase-memory) as a REQUIRED impact-analysis gate, via scripts/code_graph.py (opt out with AI_DISCIPLINE_GRAPH_OPTIONAL=1). Semgrep is the optional Verify security-scan gate. Spec / Loop / Memory are the framework's own Markdown templates plus the AI agent.",
   "layers": {
     "verify": {
       "framework": "Semgrep",
@@ -14,11 +14,11 @@
       }
     },
     "impact": {
-      "framework": "code knowledge-graph MCP (e.g. codebase-memory-mcp-pro)",
+      "framework": "code knowledge-graph MCP (codebase-memory-mcp-pro)",
       "repo": "https://github.com/win4r/codebase-memory-mcp-pro",
       "runtime_integrated": false,
-      "agent_integrated": true,
-      "why": "Optional. When configured as a Claude Code MCP server, the AGENT (not the framework) uses it in the Spec impact-analysis step: detect_changes (git diff -> affected symbols) + explore (transitive blast radius) fill the Impact Analysis table from the graph instead of by hand, and decide which interfaces need tests before coding. The framework never calls the binary. If absent, the agent falls back to manual impact analysis plus the framework's own symbol->test mapping and blind spots.",
+      "required": true,
+      "why": "REQUIRED (hard dependency). The framework calls it via scripts/code_graph.py during verify: index_repository builds the graph and detect_changes computes the blast radius (which interfaces a change affects), so the gate can demand tests for affected-but-untested interfaces. Not a pip package — build the binary (see code_graph.py INSTALL_HINT). The agent can additionally use the same MCP (detect_changes/explore) when filling the spec. Opt out with AI_DISCIPLINE_GRAPH_OPTIONAL=1 (framework self-test / environments that cannot compile the binary) to fall back to hand-filled impact analysis.",
       "mcp": {
         "add": ["claude", "mcp", "add", "codebase-memory", "-s", "user", "--", "codebase-memory-mcp"],
         "tools": ["index_repository", "detect_changes", "explore", "trace_path", "query_graph"],
