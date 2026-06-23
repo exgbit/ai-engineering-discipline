@@ -40,8 +40,9 @@ scripts\bootstrap.bat C:\path\to\你的项目
 ```
 
 - 默认**不覆盖**你已有的文件;要强制重装加 `--force`(会先把你的 `CLAUDE.md`/`AGENTS.md`/`.ai-discipline.json` 备份成 `.bak`)。
-- **唯一可选的外部工具是 Semgrep**(安全扫描)。想要这道扫描就加 `--install-adapters`(它现在**只装 Semgrep**);不装也完全能用,只是少一道可选的安全扫描。
-- **Spec Kit / LangGraph / Mem0 不用装** —— 框架不调用它们,它们只是规格/循环/记忆模板的风格参考。装了也不会被用到。
+- **影响分析需要 codebase-memory(知识图谱,硬依赖,需本地编译)** —— 框架在 verify 时调它算"改动波及哪些接口",没装则门禁红灯。装法见 README「快速上手」;无法编译的环境用 `AI_DISCIPLINE_GRAPH_OPTIONAL=1` 关掉、回退手填影响分析。
+- **Semgrep 仍是可选**(安全扫描)。想要就加 `--install-adapters`(只装 Semgrep);不装少一道可选扫描。
+- **Spec Kit / LangGraph / Mem0 不用装** —— 框架不调用它们,它们只是规格/循环/记忆模板的风格参考。
 
 装完后,你的项目里会多出 `.claude/`(技能和命令)、`docs/`(规格/验证/记忆等目录)。
 

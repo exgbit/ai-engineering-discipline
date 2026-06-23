@@ -170,11 +170,11 @@ Track these weekly during adoption:
 
 Use `scripts/summarize_metrics.py` when a metrics CSV is available.
 
-## Optional External Tool
+## External Tools
 
-The framework needs no external tools to run. The only optional one is Semgrep (the security-scan gate in the Verify step); if it is not installed the scan is reported as skipped, not failed. Spec / Loop / Memory are implemented by the framework's own Markdown templates plus the AI agent — no external tool is called there.
+The framework calls **codebase-memory** (a code knowledge-graph MCP) as a REQUIRED impact-analysis gate: during verify it runs `index_repository` + `detect_changes` (via `scripts/code_graph.py`) to compute which interfaces a change affects (the blast radius), then crosses that with the test-index blind spots so affected-but-untested interfaces get tests before coding. The gate blocks if the binary is missing. It is not a pip package — build it (see `scripts/code_graph.py` INSTALL_HINT). Set `AI_DISCIPLINE_GRAPH_OPTIONAL=1` to opt out (framework self-test / environments that cannot compile the binary), which falls back to hand-filled impact analysis.
 
-Use `scripts/install_default_adapters.py <target> --execute` only if the user wants the Semgrep scan; it installs nothing else.
+Semgrep remains an optional security-scan gate in Verify (skipped, not failed, if absent). Spec / Loop / Memory are the framework's own Markdown templates plus the AI agent.
 
 ## Default Behavior
 
