@@ -1,6 +1,6 @@
 # Integrated Workflow
 
-This framework is designed so users do not need to learn or install Spec Kit, LangGraph, or Mem0 at all. The only optional external tool is Semgrep (the security scan).
+This framework is designed so users do not need to learn or install Spec Kit, LangGraph, or Mem0 at all. Runtime verification uses **codebase-memory** as the required impact-analysis gate, and **Semgrep** as the optional security scan.
 
 The Claude Code user-facing interface is one managed request through slash commands:
 
@@ -24,11 +24,11 @@ Internally, the framework routes work through four steps, all implemented by its
 ```text
 Spec   -> ai-spec   -> framework's own spec template (filled by the agent)
 Loop   -> ai-loop   -> framework's own loop runbook
-Verify -> ai-verify -> native tests + optional Semgrep security scan
+Verify -> ai-verify -> native tests + required codebase-memory impact analysis + optional Semgrep security scan
 Memory -> ai-memory -> local docs/memory
 ```
 
-Only the Verify step calls an external tool (Semgrep), and only if it is installed — otherwise the scan is reported as skipped, not failed. No other external tool is called or needed. (The Spec / Loop / Memory templates take stylistic inspiration from GitHub Spec Kit, LangGraph, and Mem0, but the framework does not run those tools and you do not need to install them.)
+Only the Verify step calls runtime external tools: codebase-memory is required for impact analysis (`index_repository` + `detect_changes`) and blocks development changes if unavailable; Semgrep is optional and, when requested but absent, is reported as skipped/uncovered rather than silently successful. The Spec / Loop / Memory templates take stylistic inspiration from GitHub Spec Kit, LangGraph, and Mem0, but the framework does not run those tools and you do not need to install them.
 
 ## What This Framework Adds
 
@@ -57,7 +57,7 @@ The preset resolver expands this into framework parameters:
 feature + medium
   -> spec:   mode=feature, acceptance criteria required
   -> loop:   runbook=feature-slice-loop, max_retries=2, human_gate=on_verify_failure
-  -> verify: Semgrep config=auto (only if installed), severity=warning, native_tests=true, require_build=true
+  -> verify: codebase-memory impact analysis required, Semgrep config=auto (if enabled/installed), severity=warning, native_tests=true, require_build=true
   -> memory: local docs/memory tags=[feature, medium-risk]
 ```
 

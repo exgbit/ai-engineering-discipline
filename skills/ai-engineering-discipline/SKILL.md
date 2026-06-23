@@ -17,23 +17,23 @@ Each step skill owns one engineering control:
 
 - `ai-spec`: turn the request into a spec (the framework's own template, filled by you the agent)
 - `ai-loop`: run the work through a controlled loop (the framework's own runbook)
-- `ai-verify`: prove it with native tests plus an optional Semgrep security scan
+- `ai-verify`: prove it with native tests, required codebase-memory impact analysis, and an optional Semgrep security scan
 - `ai-memory`: persist durable lessons in local `docs/memory`
 
 ## Integrated Workflow
 
 This framework's default behavior is one integrated workflow. Keep `ai-spec`, `ai-loop`, `ai-verify`, and `ai-memory` behind this orchestrator unless the user explicitly asks to operate a single step.
 
-The four controls map to the four step skills; only Verify calls an external tool (Semgrep, optional):
+The four controls map to the four step skills; only Verify calls runtime external tools (codebase-memory required for impact analysis, Semgrep optional for security scanning):
 
 ```text
 Spec   -> ai-spec   -> framework's own spec template, filled by the agent
 Loop   -> ai-loop   -> framework's own loop runbook
-Verify -> ai-verify -> native tests + optional Semgrep security scan
+Verify -> ai-verify -> native tests + required codebase-memory impact analysis + optional Semgrep security scan
 Memory -> ai-memory -> local docs/memory
 ```
 
-Integration depth differs by design: only Verify runs an external tool (Semgrep) at runtime via `execute_request.py`, and even that is optional. Spec/Loop/Memory are implemented entirely by the framework's own Markdown templates plus you (the agent); the tool name in each row (Spec Kit / LangGraph / Mem0) is only a style reference — the framework does not call them and they do not need to be installed. See `framework/integration-levels.md`.
+Integration depth differs by design: only Verify runs runtime external tools via `execute_request.py`: codebase-memory is required for impact analysis, while Semgrep is optional for security scanning. Spec/Loop/Memory are implemented entirely by the framework's own Markdown templates plus you (the agent); the tool name in each row (Spec Kit / LangGraph / Mem0) is only a style reference — the framework does not call them and they do not need to be installed. See `framework/integration-levels.md`.
 
 ## Default Entry: One Plain Sentence
 
@@ -246,7 +246,7 @@ If verification flags are enabled, treat `docs/verify/verification-results.json`
 
 ### 5. Optional Semgrep Scan
 
-The framework needs no external tools. The only optional one is Semgrep (the Verify security gate); if it is absent the scan is reported as skipped, not failed. Spec / Loop / Memory use the framework's own templates and need nothing installed. Install Semgrep only (with `--execute`) from the framework repository:
+The framework needs codebase-memory for the Verify impact-analysis gate on development tasks. Semgrep is optional for the Verify security gate; if it is absent the scan is reported as skipped/uncovered, not silently successful. Spec / Loop / Memory use the framework's own templates and need no external template framework. Install Semgrep only (with `--execute`) from the framework repository:
 
 ```bash
 python scripts/install_default_adapters.py <target-project-path>

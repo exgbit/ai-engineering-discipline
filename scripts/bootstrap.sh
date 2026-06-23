@@ -10,7 +10,7 @@ Installs the Spec / Verify / Memory + Loop framework into a target project.
 
 Options:
   --force             Overwrite existing framework files in the target project.
-  --install-adapters  Install the optional Semgrep security-scan gate (the only external tool the framework calls; the other layers need nothing installed).
+  --install-adapters  Install optional adapter tooling such as Semgrep. codebase-memory remains the required impact-analysis gate; build it as described in README.
 USAGE
 }
 

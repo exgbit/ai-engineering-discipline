@@ -167,7 +167,7 @@ def main() -> int:
     parser.add_argument(
         "--layers",
         default="verify",
-        help="Comma-separated layers to process. Only Verify (Semgrep) is a real tool the framework uses.",
+        help="Comma-separated adapter layers to process. codebase-memory is required separately for impact analysis; Semgrep is the optional security adapter.",
     )
     args = parser.parse_args()
 
