@@ -53,8 +53,13 @@ def main() -> int:
             encoding="utf-8",
         )
         (target / "tests").mkdir()
+        # order.test.js 只真测 submitOrder;cancelOrder 仅出现在注释/字符串里(污染源)——
+        # 锁住"剥离注释/字符串后再 token 匹配":cancelOrder 必须仍判为盲区,不被污染成 guarded。
         (target / "tests" / "order.test.js").write_text(
-            "import { submitOrder } from '../src/order.js';\ntest('s', () => { submitOrder(1); });\n",
+            "import { submitOrder } from '../src/order.js';\n"
+            "// cancelOrder mentioned in a line comment (must NOT count as a guard)\n"
+            "/* cancelOrder in a block comment too */\n"
+            "test('s', () => { const note = 'cancelOrder in a string'; submitOrder(1); });\n",
             encoding="utf-8",
         )
         (target / "service").mkdir()
@@ -105,7 +110,7 @@ def main() -> int:
         guarded = {s["symbol"] for s in ti["symbols"]}
         blind = {b["symbol"] for b in ti["blind_spots"]}
         check("submitOrder" in guarded, "submitOrder should be guarded by the test")
-        check("cancelOrder" in blind, "cancelOrder should be a blind spot")
+        check("cancelOrder" in blind, "cancelOrder should be a blind spot (locks comment/string stripping — it only appears in comments/strings, never a real reference)")
 
         # 6) 真回归:测试套件跑绿(npm test=echo ok)→ 不应再要求填 Regression Plan
         check(

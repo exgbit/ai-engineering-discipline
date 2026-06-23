@@ -20,3 +20,5 @@ jobs:
           python-version: '3.x'
       - name: End-to-end smoke test
         run: python scripts/smoke_test.py
+      - name: Knowledge-graph impact smoke (skips if codebase-memory absent)
+        run: python scripts/graph_smoke_test.py
