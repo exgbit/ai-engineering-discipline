@@ -121,6 +121,32 @@ def main() -> int:
         # 7) diff-coverage:启用后字段写入 verification-results,集成不崩(无 git/无工具时为 None/unavailable)
         check("diff_coverage" in vr, "verification-results.json missing diff_coverage key")
 
+        # 8) 硬强制锁(R4):非 opt-out + 知识图谱不可见 → execute 门禁必须 blocking "codebase-memory required"。
+        #    CI 本就没装;本地从 PATH/HOME 隔离掉 ~/.local/bin 模拟没装。靠 blocking_reasons 文本断言
+        #    (退出码会被其它冗余闸掩盖)。posix only:env 隔离跨平台差异大,门禁逻辑本身平台无关。
+        if os.name == "posix":
+            r4_env = {k: v for k, v in os.environ.items() if k != "AI_DISCIPLINE_GRAPH_OPTIONAL"}
+            r4_env["PATH"] = ":".join(p for p in r4_env.get("PATH", "").split(":") if ".local" not in p)
+            r4_env["HOME"] = str(Path(td) / "nograph_home")
+            subprocess.run(
+                [sys.executable, str(CLI), "execute", str(target), "--run-native-checks"],
+                capture_output=True, text=True, env=r4_env,
+            )
+            vr2 = json.loads((target / "docs" / "verify" / "verification-results.json").read_text(encoding="utf-8"))
+            check(
+                any("codebase-memory" in b for b in vr2["blocking_reasons"]),
+                f"R4: missing knowledge-graph must block (hard requirement); got {vr2['blocking_reasons']}",
+            )
+            # R3 硬强制锁:同隔离下 doctor 的 knowledge-graph 检查应 fail(硬强制在 doctor 报告侧也可见)
+            dproc = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "doctor.py"), str(target)],
+                capture_output=True, text=True, env=r4_env,
+            )
+            check(
+                "required but not installed" in dproc.stdout,
+                "R3: doctor must fail the knowledge-graph check when the binary is missing",
+            )
+
     print(f"SMOKE OK on {sys.platform}")
     return 0
 
