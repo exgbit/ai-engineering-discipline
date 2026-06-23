@@ -20,7 +20,8 @@
     "severity": "warning",
     "native_tests": true,
     "require_build": false,
-    "require_security_scan": false
+    "require_security_scan": false,
+    "require_diff_coverage": true
   },
   "memory": {
     "local_memory": true,

@@ -25,6 +25,7 @@ DEFAULT_CONFIG: dict[str, object] = {
         "run_semgrep": False,
         "run_native_checks": False,
         "fail_on_verify_failure": False,
+        "fail_on_incomplete_coverage": False,
         "timeout_seconds": 600,
     },
     "reports": {
@@ -678,8 +679,12 @@ def build_execute_args(args: argparse.Namespace, target: Path) -> list[str]:
         command_args.append("--run-native-checks")
     if getattr(args, "run_diff_coverage", False):
         command_args.append("--run-diff-coverage")
+    if getattr(args, "record_red_phase", False):
+        command_args.append("--record-red-phase")
     if resolved_bool(args, target, "fail_on_verify_failure", False):
         command_args.append("--fail-on-verify-failure")
+    if resolved_bool(args, target, "fail_on_incomplete_coverage", False):
+        command_args.append("--fail-on-incomplete-coverage")
     command_args.extend(["--timeout-seconds", str(resolved_timeout(args, target))])
     return command_args
 
@@ -809,9 +814,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-native-checks", dest="run_native_checks", action="store_true", default=None)
     run.add_argument("--no-run-native-checks", dest="run_native_checks", action="store_false")
     run.add_argument("--run-diff-coverage", dest="run_diff_coverage", action="store_true", default=False, help="diff-coverage: check changed lines are executed by tests (needs a coverage tool).")
+    run.add_argument("--record-red-phase", dest="record_red_phase", action="store_true", default=False, help="Run native test commands before implementation and save expected failing-test evidence.")
     run.add_argument("--timeout-seconds", type=int)
     run.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
     run.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
+    run.add_argument("--fail-on-incomplete-coverage", dest="fail_on_incomplete_coverage", action="store_true", default=None)
+    run.add_argument("--no-fail-on-incomplete-coverage", dest="fail_on_incomplete_coverage", action="store_false")
     run.add_argument("--archive-runs", dest="archive_runs", action="store_true", default=None)
     run.add_argument("--no-archive-runs", dest="archive_runs", action="store_false")
     run.set_defaults(func=command_run)
@@ -828,9 +836,12 @@ def build_parser() -> argparse.ArgumentParser:
     execute.add_argument("--run-native-checks", dest="run_native_checks", action="store_true", default=None)
     execute.add_argument("--no-run-native-checks", dest="run_native_checks", action="store_false")
     execute.add_argument("--run-diff-coverage", dest="run_diff_coverage", action="store_true", default=False, help="diff-coverage: check changed lines are executed by tests (needs a coverage tool).")
+    execute.add_argument("--record-red-phase", dest="record_red_phase", action="store_true", default=False, help="Run native test commands before implementation and save expected failing-test evidence.")
     execute.add_argument("--timeout-seconds", type=int)
     execute.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
     execute.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
+    execute.add_argument("--fail-on-incomplete-coverage", dest="fail_on_incomplete_coverage", action="store_true", default=None)
+    execute.add_argument("--no-fail-on-incomplete-coverage", dest="fail_on_incomplete_coverage", action="store_false")
     execute.set_defaults(func=command_execute)
 
     verify = subparsers.add_parser("verify", help="Run native checks and Semgrep for the current request.")
@@ -841,6 +852,8 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--timeout-seconds", type=int)
     verify.add_argument("--fail-on-verify-failure", dest="fail_on_verify_failure", action="store_true", default=None)
     verify.add_argument("--no-fail-on-verify-failure", dest="fail_on_verify_failure", action="store_false")
+    verify.add_argument("--fail-on-incomplete-coverage", dest="fail_on_incomplete_coverage", action="store_true", default=None)
+    verify.add_argument("--no-fail-on-incomplete-coverage", dest="fail_on_incomplete_coverage", action="store_false")
     verify.set_defaults(func=command_verify)
 
     report = subparsers.add_parser("report", help="Write docs/reports/pilot-report.md and .json.")

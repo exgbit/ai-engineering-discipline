@@ -30,6 +30,7 @@ class ManagedRequest:
     execute: bool
     preset: str
     risk: str
+    change_base: str
     requirements: list[Path]
     spec_path: Path
     loop_path: Path
@@ -159,6 +160,9 @@ def parse_request(target: Path, request_path: Path) -> ManagedRequest:
     execute = parse_bullet_value(task_section, "Execute implementation now") == "true"
     preset = parse_bullet_value(task_section, "Preset")
     risk = parse_bullet_value(task_section, "Risk")
+    change_base = parse_bullet_value(task_section, "Change base")
+    if change_base == "unavailable":
+        change_base = ""
     if not task or not name:
         raise ValueError(f"Request is missing required Task fields: {request_path}")
 
@@ -169,6 +173,7 @@ def parse_request(target: Path, request_path: Path) -> ManagedRequest:
         execute=execute,
         preset=preset,
         risk=risk,
+        change_base=change_base,
         requirements=parse_bullet_paths(requirements_section, target),
         spec_path=artifact("Spec", f"docs/specs/{slugify(name)}.md"),
         loop_path=artifact("Loop", "docs/loops/loop-template.md"),
@@ -696,25 +701,29 @@ _CODE_EXTS = (
 )
 
 
-def git_changed_files(target: Path) -> list[str] | None:
-    """目标项目工作树改动的文件(相对路径);非 git 仓库或 git 不可用时返回 None。"""
+def git_changed_files(target: Path, base_ref: str = "HEAD") -> list[str] | None:
+    """目标项目从 base_ref 到当前工作树的改动文件(相对路径)。
+
+    request 创建时记录 Change base;验证时按这个基线看完整需求变更范围,支持
+    "先提交测试、后提交实现"的 TDD 流程。旧 request 没有基线时回退 HEAD。
+    """
+    files: set[str] = set()
     try:
-        result = subprocess.run(
+        diff_result = subprocess.run(
+            ["git", "-C", str(target), "diff", "--name-status", base_ref],
+            capture_output=True, text=True, timeout=30,
+        )
+        status_result = subprocess.run(
             ["git", "-C", str(target), "status", "--porcelain"],
             capture_output=True, text=True, timeout=30,
         )
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None
-    if result.returncode != 0:
+    if diff_result.returncode != 0 or status_result.returncode != 0:
         return None
-    files: list[str] = []
-    for line in result.stdout.splitlines():
-        path = line[3:].strip() if len(line) > 3 else ""
-        if " -> " in path:  # 重命名:取新路径
-            path = path.split(" -> ")[-1].strip()
-        if path:
-            files.append(path)
-    return files
+    _append_name_status_paths(files, diff_result.stdout)
+    _append_status_paths(files, status_result.stdout)
+    return sorted(files)
 
 
 def is_test_file(path: str) -> bool:
@@ -735,6 +744,38 @@ def is_framework_artifact(path: str) -> bool:
 
 def is_code_file(path: str) -> bool:
     return path.endswith(_CODE_EXTS)
+
+
+def is_generated_noise(path: str) -> bool:
+    parts = path.split("/")
+    return "__pycache__" in parts or path.endswith((".pyc", ".pyo", ".class"))
+
+
+def git_diff_base(request: ManagedRequest) -> str:
+    return request.change_base or "HEAD"
+
+
+def git_diff_command(target: Path, base_ref: str, *extra: str) -> list[str]:
+    return ["git", "-C", str(target), "diff", base_ref, *extra]
+
+
+def _append_status_paths(files: set[str], status_text: str) -> None:
+    for line in status_text.splitlines():
+        path = line[3:].strip() if len(line) > 3 else ""
+        if " -> " in path:
+            path = path.split(" -> ")[-1].strip()
+        if path and not is_generated_noise(path):
+            files.add(path)
+
+
+def _append_name_status_paths(files: set[str], diff_text: str) -> None:
+    for line in diff_text.splitlines():
+        parts = line.split("\t")
+        if not parts:
+            continue
+        path = parts[-1].strip()
+        if path and not is_generated_noise(path):
+            files.add(path)
 
 
 # 从改动代码里提取被定义的符号(函数/类/方法名),用于核对测试是否真的引用了改动。
@@ -773,7 +814,7 @@ def _nearest_def_above(lines, idx):
     return None
 
 
-def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
+def changed_code_symbols(target: Path, code_files: list[str], base_ref: str = "HEAD") -> set[str]:
     """改动涉及的符号(函数/类名)。用 git diff --unified=0 精确定位改动行:
     - 对每个 hunk,按新文件起始行号在改动后的文件里**向上找最近的 def**(含缩进的类方法);
     - 从新增行(+)提取新增的定义。
@@ -788,7 +829,7 @@ def changed_code_symbols(target: Path, code_files: list[str]) -> set[str]:
         diff_text = ""
         try:
             result = subprocess.run(
-                ["git", "-C", str(target), "diff", "HEAD", "--unified=0", "--", f],
+                ["git", "-C", str(target), "diff", base_ref, "--unified=0", "--", f],
                 capture_output=True, text=True, timeout=30,
             )
             diff_text = result.stdout
@@ -894,7 +935,8 @@ def verification_gate_details(
     elif "semgrep" in required:
         uncovered_checks.append("semgrep (not run)")
 
-    # native:失败 → 阻断;探测不到可运行命令 → 仅提示
+    # native:失败 → 阻断;探测不到可运行测试命令也阻断。框架的开发纪律是
+    # "先补测试再开发,最后全量测试必须绿";没有可运行测试套件不能标记完成。
     native_ran = False
     build_ran = False
     for item in native:
@@ -910,7 +952,7 @@ def verification_gate_details(
             blocking_reasons.append(f"{item.name} {item.status}")
 
     if "native_checks" in required and (not native or not native_ran or all(item.status == "skipped" for item in native)):
-        uncovered_checks.append("native_checks (no runnable test command found)")
+        blocking_reasons.append("native_checks unavailable: no runnable test command found")
     if "build" in required:
         # required 的 build 即使无法运行也要如实报告,不能从所有列表里静默蒸发
         if not build_ran:
@@ -922,14 +964,17 @@ def verification_gate_details(
     # 就必须配套测试,且测试要真引用改动符号(堵空测试/测错函数)。test_evidence_ok 三态供
     # 下面的人工检查复用:True=有覆盖改动的测试;False=改了码却没有;None=非 git 无法核实。
     test_evidence_ok = None
+    changed_code_count = 0
     if request.task in TASKS_NEEDING_TESTS:
         repo = request.path.parents[2]
-        changed = git_changed_files(repo)
+        base_ref = git_diff_base(request)
+        changed = git_changed_files(repo, base_ref)
         if changed is None:
-            uncovered_checks.append("test-coverage (cannot verify: target is not a git repository)")
+            blocking_reasons.append("test-coverage unavailable: target is not a git repository")
         else:
             code_changed = [f for f in changed if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
             test_changed = [f for f in changed if is_test_file(f) and not is_framework_artifact(f)]
+            changed_code_count = len(code_changed)
             if not code_changed:
                 test_evidence_ok = True  # 没改业务代码,无需配套测试
             elif not test_changed:
@@ -938,11 +983,11 @@ def verification_gate_details(
                     f"code changed without a matching test change ({len(code_changed)} code file(s), 0 test files)"
                 )
             else:
-                symbols = changed_code_symbols(repo, code_changed)
+                symbols = changed_code_symbols(repo, code_changed, base_ref)
                 if not symbols:
                     # 改动不含可提取的函数/类符号(如纯模块级赋值/配置)→ 无法静态核实测试
-                    # 是否覆盖;不静默放行,降级为未覆盖(coverage 不全,但不误拦)
-                    uncovered_checks.append("test-coverage (changed code has no extractable symbol to match tests against)")
+                    # 是否覆盖;严格 TDD 模式下不能静默放行。
+                    blocking_reasons.append("test-coverage unavailable: changed code has no extractable symbol to match tests against")
                 elif tests_reference_symbols(repo, test_changed, symbols):
                     test_evidence_ok = True
                 else:
@@ -969,7 +1014,11 @@ def verification_gate_details(
     if require_dc or diff_cov is not None:
         if diff_cov is None or not diff_cov.get("available"):
             reason = (diff_cov or {}).get("reason", "not run")
-            uncovered_checks.append(f"diff-coverage (coverage tool unavailable: {reason})")
+            msg = f"diff-coverage unavailable: coverage tool unavailable: {reason}"
+            if require_dc:
+                blocking_reasons.append(msg)
+            else:
+                uncovered_checks.append(msg)
         else:
             gap = sum(len(v) for v in (diff_cov.get("uncovered_lines") or {}).values())
             if gap:
@@ -987,9 +1036,14 @@ def verification_gate_details(
                 "codebase-memory knowledge-graph MCP is required but not installed "
                 "(run `python scripts/code_graph.py <target>` for the install hint)"
             )
+        elif changed_code_count > 0 and not impact.get("impacted"):
+            blocking_reasons.append(
+                f"impact: code changed but knowledge graph returned no affected interfaces "
+                f"({changed_code_count} code file(s))"
+            )
         elif impact.get("untested"):
             names = ", ".join(impact["untested"][:8])
-            uncovered_checks.append(
+            blocking_reasons.append(
                 f"impact: {len(impact['untested'])} affected interface(s) without a guarding test: {names}"
             )
 
@@ -1276,6 +1330,18 @@ def humanize_blocking(item: str) -> str:
     low = item.lower()
     if "without a matching test" in low:
         return "Code was changed but no test was added or updated."
+    if "native_checks unavailable" in low:
+        return "No runnable test command was found, so the full test suite cannot be proven green."
+    if "target is not a git repository" in low:
+        return "The project is not in git, so the framework cannot verify which code and tests changed."
+    if "no extractable symbol" in low:
+        return "The changed code could not be matched to a testable function or class."
+    if "diff-coverage unavailable" in low:
+        return "Diff coverage is required, but the coverage tool is unavailable."
+    if "knowledge graph returned no affected interfaces" in low:
+        return "Code changed, but the knowledge graph returned no affected interfaces, so impact analysis cannot be trusted."
+    if low.startswith("impact:"):
+        return "Some affected interfaces still have no guarding tests."
     if "impact analysis incomplete" in low:
         return "The spec's Impact Analysis isn't filled in yet."
     if "regression incomplete" in low:
@@ -1464,6 +1530,12 @@ def write_verification_results(
     semgrep_summary = parse_semgrep_summary(semgrep.stdout) if semgrep else None
     overall_status, overall_reason = verification_rollup(semgrep, native)
     gate_details = verification_gate_details(request, semgrep, native, diff_cov, impact)
+    if gate_details["blocking_reasons"]:
+        overall_status = "blocked"
+        overall_reason = "Gate has blocking reasons; see blocking_reasons."
+    elif not gate_details.get("coverage_complete", False):
+        overall_status = "pending"
+        overall_reason = "Executed checks passed, but required coverage is incomplete."
     payload: dict[str, object] = {
         "created": now,
         "request": {
@@ -1579,6 +1651,90 @@ def write_verification_results(
     return gate_details
 
 
+def write_red_phase_results(
+    target: Path,
+    request: ManagedRequest,
+    native: list[CommandResult],
+    actions: list[str],
+) -> dict[str, object]:
+    verify_dir = target / "docs" / "verify"
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    test_items = [item for item in native if item.name != "native:detect" and item.name.endswith("test")]
+    red_phase_observed = bool(test_items) and any(item.status in {"failed", "timeout"} for item in test_items)
+    if not test_items:
+        status = "missing"
+        reason = "No runnable native test command was found for the red phase."
+    elif red_phase_observed:
+        status = "observed"
+        reason = "At least one new/updated test failed before implementation, as expected in the red phase."
+    else:
+        status = "not_red"
+        reason = "The test commands did not fail before implementation; red-phase evidence is missing."
+
+    payload: dict[str, object] = {
+        "created": now,
+        "request": {
+            "name": request.name,
+            "task": request.task,
+            "preset": request.preset,
+            "risk": request.risk,
+        },
+        "status": status,
+        "reason": reason,
+        "red_phase_observed": red_phase_observed,
+        "native_checks": [result_to_dict(item) for item in native],
+    }
+    write_json_artifact(verify_dir / "red-phase-results.json", payload, actions)
+
+    lines = [
+        f"# Red Phase Results: {request.name}",
+        "",
+        f"Created: {now}",
+        "",
+        "## Summary",
+        "",
+        f"- Status: `{status}`",
+        f"- Reason: {reason}",
+        f"- Red phase observed: `{str(red_phase_observed).lower()}`",
+        "",
+        "| Check | Status | Exit | Duration |",
+        "|---|---|---|---|",
+    ]
+    for item in native:
+        lines.append(
+            f"| {md_cell(item.name)} | {md_cell(item.status)} | "
+            f"{md_cell(item.exit_code if item.exit_code is not None else '')} | "
+            f"{md_cell(f'{item.duration_seconds}s')} |"
+        )
+    lines.extend(["", "## Native Test Commands", ""])
+    if native:
+        for item in native:
+            lines.extend([
+                f"### {item.name}",
+                "",
+                f"- Command: `{command_to_text(item.command)}`",
+                f"- Status: `{item.status}`",
+                f"- Exit code: `{item.exit_code if item.exit_code is not None else ''}`",
+                "",
+                "Stdout:",
+                "",
+                "```text",
+                (item.stdout or "No stdout.").strip(),
+                "```",
+                "",
+                "Stderr:",
+                "",
+                "```text",
+                (item.stderr or "No stderr.").strip(),
+                "```",
+                "",
+            ])
+    else:
+        lines.append("- None run.")
+    safe_write(verify_dir / "red-phase-results.md", "\n".join(lines), force=True, actions=actions)
+    return payload
+
+
 def verification_rollup(semgrep: CommandResult | None, native: list[CommandResult]) -> tuple[str, str]:
     results = ([semgrep] if semgrep else []) + native
     if not results:
@@ -1604,11 +1760,20 @@ def update_test_matrix_with_results(
     semgrep: CommandResult | None,
     native: list[CommandResult],
     actions: list[str],
+    diff_cov: dict | None = None,
+    impact: dict | None = None,
 ) -> None:
     if semgrep is None and not native:
         return
     matrix_path = request.verify_matrix_path
     status, reason = verification_rollup(semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native, diff_cov, impact)
+    if gate_details["blocking_reasons"]:
+        status = "blocked"
+        reason = "Gate has blocking reasons; see docs/verify/verification-results.json."
+    elif not gate_details.get("coverage_complete", False):
+        status = "pending"
+        reason = "Executed checks passed, but required coverage is incomplete."
 
     evidence_rows = []
     if semgrep:
@@ -1684,12 +1849,20 @@ def write_loop_run_log(
     semgrep: CommandResult | None,
     native: list[CommandResult],
     actions: list[str],
+    diff_cov: dict | None = None,
+    impact: dict | None = None,
 ) -> None:
     loop_dir = target / "docs" / "loops"
     path = loop_dir / "current-loop-run.md"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     status, reason = verification_rollup(semgrep, native)
-    gate_details = verification_gate_details(request, semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native, diff_cov, impact)
+    if gate_details["blocking_reasons"]:
+        status = "blocked"
+        reason = "Gate has blocking reasons; see blocking reasons."
+    elif not gate_details.get("coverage_complete", False):
+        status = "pending"
+        reason = "Executed checks passed, but required coverage is incomplete."
     verify_state = "pending"
     if semgrep or native:
         verify_state = "blocked" if status == "blocked" else "done" if status == "verified" else "pending"
@@ -1754,12 +1927,20 @@ def write_memory_candidates(
     semgrep: CommandResult | None,
     native: list[CommandResult],
     actions: list[str],
+    diff_cov: dict | None = None,
+    impact: dict | None = None,
 ) -> None:
     memory_dir = request.memory_path if request.memory_path.suffix == "" else request.memory_path.parent
     path = memory_dir / "memory-candidates.md"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     status, reason = verification_rollup(semgrep, native)
-    gate_details = verification_gate_details(request, semgrep, native)
+    gate_details = verification_gate_details(request, semgrep, native, diff_cov, impact)
+    if gate_details["blocking_reasons"]:
+        status = "blocked"
+        reason = "Gate has blocking reasons; see blocking reasons."
+    elif not gate_details.get("coverage_complete", False):
+        status = "pending"
+        reason = "Executed checks passed, but required coverage is incomplete."
     candidate_sections = [
         "## Candidate Project Rule",
         "",
@@ -1896,8 +2077,10 @@ def main() -> int:
     parser.add_argument("--run-semgrep", action="store_true", help="Run Semgrep and write structured results to docs/verify/.")
     parser.add_argument("--run-native-checks", action="store_true", help="Run detected native test/lint/typecheck/build commands.")
     parser.add_argument("--run-diff-coverage", action="store_true", help="Run diff-coverage: check changed lines are executed by tests (needs a coverage tool; degrades to uncovered if absent).")
+    parser.add_argument("--record-red-phase", action="store_true", help="Run native test commands before implementation and save expected failing-test evidence.")
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="Timeout per verification command.")
     parser.add_argument("--fail-on-verify-failure", action="store_true", help="Exit non-zero after writing results if overall verification is blocked.")
+    parser.add_argument("--fail-on-incomplete-coverage", action="store_true", help="Exit non-zero when required checks are skipped, unavailable, or need human verification.")
     args = parser.parse_args()
 
     target = Path(args.target).expanduser().resolve()
@@ -1923,6 +2106,39 @@ def main() -> int:
     write_loop(target, request, args.force, actions)
     write_verify_artifacts(target, request, args.force, actions)
     write_memory_plan(target, request, args.force, actions)
+
+    if args.record_red_phase:
+        native_commands = [
+            (name, command)
+            for name, command in detect_native_commands(target, request)
+            if name.endswith("test")
+        ]
+        red_native_results: list[CommandResult] = []
+        if native_commands:
+            for name, command in native_commands:
+                result = run_command(name, command, target, args.timeout_seconds)
+                red_native_results.append(result)
+                actions.append(f"red-phase {name}: {result.status}")
+        else:
+            red_native_results.append(
+                CommandResult(
+                    name="native:detect",
+                    command=[],
+                    status="skipped",
+                    exit_code=None,
+                    duration_seconds=0.0,
+                    stdout="",
+                    stderr="No recognized native test commands for red phase.",
+                )
+            )
+            actions.append("red-phase native: skipped no recognized test commands")
+        red_phase = write_red_phase_results(target, request, red_native_results, actions)
+        report = write_execution_report(target, request, actions)
+        print(f"recorded red phase: {request.name}")
+        print(f"report: {report}")
+        for action in actions:
+            print(action)
+        return 0 if red_phase.get("red_phase_observed") else 1
 
     semgrep_result = None
     native_results: list[CommandResult] = []
@@ -1951,11 +2167,11 @@ def main() -> int:
             actions.append("verify native: skipped no recognized commands")
     diff_cov = None
     if args.run_diff_coverage or request.verify_params.get("require_diff_coverage"):
-        changed = git_changed_files(target)
+        changed = git_changed_files(target, git_diff_base(request))
         code_changed = [f for f in (changed or []) if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
         if code_changed:
             from diff_coverage import diff_coverage_result
-            diff_cov = diff_coverage_result(target, code_changed)
+            diff_cov = diff_coverage_result(target, code_changed, git_diff_base(request))
             actions.append(f"diff-coverage: {'available' if diff_cov.get('available') else 'unavailable'}")
     # 知识图谱影响分析(硬依赖):需要测试的 task 一律算——没装则门禁阻断要求先装。
     # AI_DISCIPLINE_GRAPH_OPTIONAL=1 关掉硬强制(框架自测 / 无法编译二进制的环境用),回退到不算 impact。
@@ -1967,26 +2183,30 @@ def main() -> int:
         else:
             from build_test_index import refresh_test_index  # 先刷新盲区,impact 才能交叉"受影响但没测"
             refresh_test_index(target, actions)
-            names = impacted_symbol_names(detect_changes(target))
+            names = impacted_symbol_names(detect_changes(target, since=git_diff_base(request)))
             impact = {"available": True, "impacted": names, "untested": impacted_untested(target, names)}
             write_impact_report(target, impact)
             actions.append(f"impact-graph: {len(names)} affected, {len(impact['untested'])} untested")
     gate = write_verification_results(target, request, semgrep_result, native_results, actions, diff_cov, impact)
-    update_test_matrix_with_results(target, request, semgrep_result, native_results, actions)
-    write_loop_run_log(target, request, semgrep_result, native_results, actions)
-    write_memory_candidates(target, request, semgrep_result, native_results, actions)
+    update_test_matrix_with_results(target, request, semgrep_result, native_results, actions, diff_cov, impact)
+    write_loop_run_log(target, request, semgrep_result, native_results, actions, diff_cov, impact)
+    write_memory_candidates(target, request, semgrep_result, native_results, actions, diff_cov, impact)
 
     report = write_execution_report(target, request, actions)
     print(f"executed safe request setup: {request.name}")
     print(f"report: {report}")
     for action in actions:
         print(action)
-    if args.fail_on_verify_failure:
+    if args.fail_on_verify_failure or args.fail_on_incomplete_coverage:
         # 退出码必须反映完整门禁(测试配套 / impact / 回归),而不只是 semgrep/native 进程状态;
         # 复用 write_verification_results 已算的 gate,不重复跑 git diff
         if gate is None:  # 没跑 semgrep/native(无可验证结果)→ 现算一次(带上 diff_cov + impact)
             gate = verification_gate_details(request, semgrep_result, native_results, diff_cov, impact)
+    if args.fail_on_verify_failure:
         if not gate["can_merge"]:
+            return 1
+    if args.fail_on_incomplete_coverage:
+        if not gate.get("coverage_complete", False):
             return 1
     return 0
 

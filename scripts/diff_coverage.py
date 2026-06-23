@@ -23,14 +23,14 @@ from pathlib import Path
 _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
-def changed_line_numbers(target: Path, code_files: list[str]) -> dict[str, set[int]]:
+def changed_line_numbers(target: Path, code_files: list[str], base_ref: str = "HEAD") -> dict[str, set[int]]:
     """每个改动文件的新增/改动行号集合(git diff --unified=0)。"""
     result: dict[str, set[int]] = {}
     for f in code_files:
         lines: set[int] = set()
         try:
             r = subprocess.run(
-                ["git", "-C", str(target), "diff", "HEAD", "--unified=0", "--", f],
+                ["git", "-C", str(target), "diff", base_ref, "--unified=0", "--", f],
                 capture_output=True, text=True, timeout=30,
             )
         except (OSError, subprocess.SubprocessError):
@@ -257,10 +257,10 @@ def _match_path(covered: dict, f: str):
     return best[1] if best else None
 
 
-def diff_coverage_result(target: Path, code_files: list[str]) -> dict:
+def diff_coverage_result(target: Path, code_files: list[str], base_ref: str = "HEAD") -> dict:
     """交叉:改动的可执行行里没被测试执行到的(gap)。
     返回 {available, tool, total_changed_executable, covered, covered_ratio, uncovered_lines, reason}。"""
-    changed = changed_line_numbers(target, code_files)
+    changed = changed_line_numbers(target, code_files, base_ref)
     if not changed:
         return {"available": True, "tool": None, "total_changed_executable": 0,
                 "covered": 0, "covered_ratio": 1.0, "uncovered_lines": {}}

@@ -203,6 +203,17 @@ def render_json_block(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2)
 
 
+def git_head(target: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(target), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def write_request(
     target: Path,
     task: str,
@@ -219,6 +230,7 @@ def write_request(
     spec_path = target / "docs" / "specs" / f"{slug}.md"
     loop_path = resolve_loop_path(target, task, preset)
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    base_commit = git_head(target)
 
     req_lines = "\n".join(
         f"- `{p.relative_to(target)}`" if path_is_relative_to(p, target) else f"- `{p}`"
@@ -237,6 +249,7 @@ Created: {now}
 - Execute implementation now: `{str(execute).lower()}`
 - Preset: `{preset.get("name", "unknown")}`
 - Risk: `{preset.get("risk", "unknown")}`
+- Change base: `{base_commit or "unavailable"}`
 
 ## Requirement Sources
 

@@ -13,7 +13,7 @@ The framework resolves:
 ```text
 spec mode and required spec sections
 loop runbook, retries, checkpoint, human gate
-Semgrep config, severity, native checks (Semgrep is the only optional external tool)
+native checks, required diff coverage for development tasks, Semgrep config/severity when security scanning is required
 memory write behavior and tags
 ```
 

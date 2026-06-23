@@ -19,7 +19,8 @@
     "severity": "warning",
     "native_tests": true,
     "require_failing_test_or_trace": true,
-    "require_build": false
+    "require_build": false,
+    "require_diff_coverage": true
   },
   "memory": {
     "local_memory": true,

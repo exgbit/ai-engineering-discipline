@@ -23,7 +23,8 @@
     "native_tests": true,
     "require_build": true,
     "require_security_scan": true,
-    "require_manual_validation": true
+    "require_manual_validation": true,
+    "require_diff_coverage": true
   },
   "memory": {
     "local_memory": true,

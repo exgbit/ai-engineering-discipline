@@ -6,6 +6,7 @@
   (否则 index 的 persist 会静默失败)。
 """
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -43,8 +44,10 @@ def _run(args, timeout=600):
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    # CLI 把 JSON 结果输出在最后一行(前面是 level=info 日志)
-    for line in reversed(result.stdout.splitlines()):
+    # CLI 把 JSON 结果输出在最后一行(前面是 level=info 日志);不同构建版本可能写
+    # stdout 或 stderr,两边都要解析,否则会把可用图谱误判成 None。
+    combined = f"{result.stdout}\n{result.stderr}"
+    for line in reversed(combined.splitlines()):
         line = line.strip()
         if line.startswith("{"):
             try:
@@ -63,10 +66,186 @@ def detect_changes(target, since="HEAD", depth=2):
     """先建图拿 project 标识,再 detect_changes:git diff(since)→ 受影响符号 blast radius。
     返回 {impacted_symbols: [...], impacted_count, changed_files, ...} 或 None。"""
     idx = index_repository(target)
-    if not idx or not idx.get("project"):
-        return None
+    if not idx or not idx.get("project") or idx.get("status") == "error":
+        return _static_detect_changes(target, since=since, depth=depth, reason="index_repository failed")
     payload = {"project": idx["project"], "depth": depth, "since": since}
-    return _run(["detect_changes", json.dumps(payload)])
+    result = _run(["detect_changes", json.dumps(payload)])
+    if not result or not result.get("impacted_symbols"):
+        return _static_detect_changes(target, since=since, depth=depth, reason="detect_changes returned empty")
+    return result
+
+
+CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx"}
+DEF_RE = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+    r"(?:def|class|function)\s+([A-Za-z_$][\w$]*)\b"
+)
+ASSIGN_RE = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*"
+    r"(?:async\s+)?(?:\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>|function\b|class\b)"
+)
+
+
+def _is_code_path(path):
+    return Path(path).suffix in CODE_EXTS
+
+
+def _is_generated_or_vendor(path):
+    parts = set(Path(path).parts)
+    return bool(parts & {"node_modules", "vendor", "dist", "build", "target", ".git", "__pycache__"})
+
+
+def _git_lines(target, args):
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(Path(target).resolve()), *args],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if result.returncode != 0:
+        return []
+    return result.stdout.splitlines()
+
+
+def _symbol_from_line(line):
+    match = DEF_RE.match(line) or ASSIGN_RE.match(line)
+    return match.group(1) if match else None
+
+
+def _line_indent(line):
+    return len(line) - len(line.lstrip(" "))
+
+
+def _extract_defs(path):
+    try:
+        lines = Path(path).read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return []
+    starts = []
+    for idx, line in enumerate(lines):
+        name = _symbol_from_line(line)
+        if name:
+            starts.append((idx, name, _line_indent(line)))
+    defs = []
+    for pos, (idx, name, indent) in enumerate(starts):
+        end = len(lines)
+        for next_idx, _, next_indent in starts[pos + 1:]:
+            if next_indent <= indent:
+                end = next_idx
+                break
+        defs.append({
+            "name": name,
+            "file": str(path),
+            "start": idx + 1,
+            "end": end,
+            "body": "\n".join(lines[idx:end]),
+        })
+    return defs
+
+
+def _changed_files(target, since):
+    return [
+        line.strip()
+        for line in _git_lines(target, ["diff", "--name-only", since])
+        if line.strip() and _is_code_path(line.strip()) and not _is_generated_or_vendor(line.strip())
+    ]
+
+
+def _changed_symbols(target, changed_files, since):
+    symbols = set()
+    for rel_path in changed_files:
+        path = Path(target) / rel_path
+        defs = _extract_defs(path)
+        for line in _git_lines(target, ["diff", "--unified=0", since, "--", rel_path]):
+            if line.startswith("@@"):
+                match = re.search(r"\+(\d+)", line)
+                if not match:
+                    continue
+                lineno = int(match.group(1))
+                owner = None
+                for item in defs:
+                    if item["start"] <= lineno <= item["end"]:
+                        owner = item["name"]
+                        break
+                if owner:
+                    symbols.add(owner)
+            elif line.startswith("+") and not line.startswith("+++"):
+                name = _symbol_from_line(line[1:])
+                if name:
+                    symbols.add(name)
+        if not symbols:
+            symbols.update(item["name"] for item in defs)
+    return symbols
+
+
+def _all_source_files(target):
+    root = Path(target)
+    files = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix not in CODE_EXTS:
+            continue
+        rel = path.relative_to(root)
+        if _is_generated_or_vendor(rel) or _looks_like_test(str(rel)):
+            continue
+        files.append(path)
+    return files
+
+
+def _static_detect_changes(target, since="HEAD", depth=2, reason="fallback"):
+    target = Path(target).resolve()
+    changed = _changed_files(target, since)
+    changed_symbols = _changed_symbols(target, changed, since)
+    if not changed_symbols:
+        return {
+            "status": "fallback",
+            "fallback_reason": reason,
+            "changed_files": changed,
+            "impacted_count": 0,
+            "impacted_symbols": [],
+        }
+
+    defs = []
+    for path in _all_source_files(target):
+        defs.extend(_extract_defs(path))
+
+    callers_by_callee = {name: set() for name in changed_symbols}
+    symbol_files = {}
+    for item in defs:
+        symbol_files.setdefault(item["name"], item["file"])
+    all_names = {item["name"] for item in defs}
+    for item in defs:
+        body = item["body"]
+        caller = item["name"]
+        for callee in all_names:
+            if caller == callee:
+                continue
+            if re.search(rf"\b{re.escape(callee)}\s*\(", body):
+                callers_by_callee.setdefault(callee, set()).add(caller)
+
+    impacted = set(changed_symbols)
+    frontier = set(changed_symbols)
+    for _ in range(max(0, int(depth))):
+        next_frontier = set()
+        for name in frontier:
+            next_frontier.update(callers_by_callee.get(name, set()))
+        next_frontier -= impacted
+        impacted.update(next_frontier)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    symbols = [
+        {"name": name, "label": "Function", "file": symbol_files.get(name, "")}
+        for name in sorted(impacted)
+    ]
+    return {
+        "status": "fallback",
+        "fallback_reason": reason,
+        "changed_files": changed,
+        "impacted_count": len(symbols),
+        "impacted_symbols": symbols,
+    }
 
 
 def _looks_like_test(path):
