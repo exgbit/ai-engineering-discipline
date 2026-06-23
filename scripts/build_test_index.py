@@ -47,6 +47,53 @@ def _read_lines(path: Path) -> list[str]:
         return []
 
 
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+_TRIPLE_STR_RE = re.compile(r'""".*?"""|\'\'\'.*?\'\'\'', re.DOTALL)
+
+
+def _blank_keep_newlines(m: "re.Match") -> str:
+    # 把匹配内容清成空白但保留换行,避免打乱行号(测试用例范围跟踪靠行序)
+    return re.sub(r"[^\n]", " ", m.group(0))
+
+
+def _strip_line(line: str) -> str:
+    """逐字符扫描一行:跳过字符串字面量内容,遇到字符串外的 # 或 // 行注释就截断。"""
+    out = []
+    i, n = 0, len(line)
+    quote = None
+    while i < n:
+        c = line[i]
+        if quote:
+            if c == "\\" and i + 1 < n:  # 转义:跳过下一个字符
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in ("'", '"', "`"):
+            quote = c
+            i += 1
+            continue
+        if c == "#":  # Python/shell 行注释
+            break
+        if c == "/" and i + 1 < n and line[i + 1] == "/":  # // 行注释
+            break
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _strip_comments_strings(lines: list[str]) -> list[str]:
+    """剥离注释和字符串字面量后逐行返回,避免注释/docstring/字符串里出现的符号名被当成
+    测试引用(否则测试 docstring 写了函数名会让盲区/影响分析漏报)。务实够用版,覆盖
+    Python/JS/TS/Go/Java/Rust/C 常见语法,非完整 tokenizer。"""
+    text = "\n".join(lines)
+    text = _BLOCK_COMMENT_RE.sub(_blank_keep_newlines, text)   # /* ... */
+    text = _TRIPLE_STR_RE.sub(_blank_keep_newlines, text)      # """...""" / '''...'''
+    return [_strip_line(ln) for ln in text.split("\n")]
+
+
 def _kind_of(line: str) -> str:
     m = _KIND_RE.search(line)
     raw = m.group(1) if m else "symbol"
@@ -92,7 +139,7 @@ def build_index(target: Path) -> dict:
         toks: set = set()
         cases: dict[str, set] = {}
         current = None
-        for line in _read_lines(target / tf):
+        for line in _strip_comments_strings(_read_lines(target / tf)):
             line_toks = _TOKEN_RE.findall(line)
             toks.update(line_toks)
             name = _match_symbol(line)
