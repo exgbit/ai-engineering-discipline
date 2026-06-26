@@ -24,11 +24,11 @@ def git_changed_files(target: Path, base_ref: str = "HEAD") -> list[str] | None:
     try:
         diff_result = subprocess.run(
             ["git", "-C", str(target), "diff", "--name-status", base_ref],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace",
         )
         status_result = subprocess.run(
             ["git", "-C", str(target), "status", "--porcelain"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace",
         )
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return None
@@ -142,7 +142,7 @@ def changed_code_symbols(target: Path, code_files: list[str], base_ref: str = "H
         try:
             result = subprocess.run(
                 ["git", "-C", str(target), "diff", base_ref, "--unified=0", "--", f],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace",
             )
             diff_text = result.stdout
         except (OSError, subprocess.SubprocessError):

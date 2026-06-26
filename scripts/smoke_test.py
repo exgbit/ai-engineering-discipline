@@ -120,6 +120,18 @@ def main() -> int:
         # 7) diff-coverage:启用后字段写入 verification-results,集成不崩(无 git/无工具时为 None/unavailable)
         check("diff_coverage" in vr, "verification-results.json missing diff_coverage key")
 
+        # 7b) native 命令必须真正启动并跑绿(跨平台回归守卫):Windows 上 npm 是 .cmd shim,
+        #     曾因 subprocess(无 shell)无法启动 .cmd 而失败;resolve_local_command 修复后三平台都应能跑。
+        native_checks = vr.get("native_checks") or []
+        check(
+            not any("not launchable" in str(c.get("stderr") or "") for c in native_checks),
+            "a detected native command failed to launch (Windows .cmd/.bat resolution regression?)",
+        )
+        check(
+            any((c.get("name") or "").startswith("node:") and c.get("status") == "passed" for c in native_checks),
+            "node:test (npm run test) must launch and pass on every OS including Windows",
+        )
+
         # 8) 硬强制锁(R4):非 opt-out + 知识图谱不可见 → execute 门禁必须 blocking "codebase-memory required"。
         #    CI 本就没装;本地从 PATH/HOME 隔离掉 ~/.local/bin 模拟没装。靠 blocking_reasons 文本断言
         #    (退出码会被其它冗余闸掩盖)。posix only:env 隔离跨平台差异大,门禁逻辑本身平台无关。

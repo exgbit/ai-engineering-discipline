@@ -960,15 +960,24 @@ def resolve_local_command(command: list[str], target: Path) -> list[str]:
     if not command:
         return command
     executable = command[0]
-    if not executable.startswith("./"):
-        return command
-    local = target / executable[2:]
-    if sys.platform.startswith("win"):
-        if local.with_suffix(".bat").exists():
-            return [f"{executable}.bat", *command[1:]]
-        if local.with_suffix(".cmd").exists():
-            return [f"{executable}.cmd", *command[1:]]
-    return command
+    if not sys.platform.startswith("win"):
+        return command  # POSIX:./gradlew、npm 等可直接执行,原样交给 subprocess
+    # Windows:解析成能被 CreateProcess(无 shell)启动的形式。
+    #  - npm/pnpm/mvn/gradle 等是 .cmd/.bat shim,CreateProcess 不认 → 必须经 `cmd /c` 启动;
+    #  - ./gradlew 这类本地 wrapper 补出真实扩展名;.exe 用完整路径直接跑。
+    if executable.startswith("./"):
+        local = target / executable[2:]
+        resolved = next(
+            (str(local.with_suffix(s)) for s in (".bat", ".cmd", ".exe") if local.with_suffix(s).exists()),
+            str(local) if local.exists() else None,
+        )
+    else:
+        resolved = shutil.which(executable)
+    if not resolved:
+        return command  # 解析不到 → 原样返回,由 command_available 判为不可用并 skip
+    if resolved.lower().endswith((".bat", ".cmd")):
+        return ["cmd", "/c", resolved, *command[1:]]
+    return [resolved, *command[1:]]
 
 
 def terminate_process_tree(proc: "subprocess.Popen") -> None:
@@ -995,15 +1004,25 @@ def run_command(name: str, command: list[str], target: Path, timeout: int) -> Co
             stdout="",
             stderr=f"Command not available: {command[0] if command else '<empty>'}",
         )
-    # 用独立进程组运行,超时后杀整个组,回收 npm/gradle 等 wrapper fork 出的孙进程
-    proc = subprocess.Popen(
-        command,
-        cwd=target,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=not sys.platform.startswith("win"),
-    )
+    # 用独立进程组运行,超时后杀整个组,回收 npm/gradle 等 wrapper fork 出的孙进程。
+    # 强制 utf-8 解码:工具输出在非 UTF-8 locale 的 Windows(如中文 GBK)否则会乱码/抛错。
+    try:
+        proc = subprocess.Popen(
+            command,
+            cwd=target,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=not sys.platform.startswith("win"),
+        )
+    except (FileNotFoundError, OSError) as exc:
+        # resolve 后仍启动不了(罕见)→ 记 skipped 而非让异常炸穿整条验证流程
+        return CommandResult(
+            name=name, command=command, status="skipped", exit_code=None,
+            duration_seconds=0.0, stdout="", stderr=f"Command not launchable: {exc}",
+        )
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
         duration = (dt.datetime.now() - started).total_seconds()

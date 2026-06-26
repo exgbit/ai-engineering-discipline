@@ -31,7 +31,7 @@ def changed_line_numbers(target: Path, code_files: list[str], base_ref: str = "H
         try:
             r = subprocess.run(
                 ["git", "-C", str(target), "diff", base_ref, "--unified=0", "--", f],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace",
             )
         except (OSError, subprocess.SubprocessError):
             continue
@@ -55,10 +55,29 @@ def changed_line_numbers(target: Path, code_files: list[str], base_ref: str = "H
     return result
 
 
+def _resolve_win(cmd: list[str], target: Path) -> list[str]:
+    """Windows:把 c8/nyc/mvn/gradle 等 .cmd/.bat shim 与 ./gradlew 解析成可被 CreateProcess
+    启动的形式(.cmd/.bat 经 `cmd /c`)。POSIX 原样返回。与 execute_request 同口径。"""
+    if not cmd or not sys.platform.startswith("win"):
+        return cmd
+    exe = cmd[0]
+    if exe.startswith("./"):
+        local = Path(target) / exe[2:]
+        resolved = next((str(local.with_suffix(s)) for s in (".bat", ".cmd", ".exe")
+                         if local.with_suffix(s).exists()), str(local) if local.exists() else None)
+    else:
+        resolved = shutil.which(exe)
+    if not resolved:
+        return cmd
+    if resolved.lower().endswith((".bat", ".cmd")):
+        return ["cmd", "/c", resolved, *cmd[1:]]
+    return [resolved, *cmd[1:]]
+
+
 def _run(cmd: list[str], target: Path, env=None, timeout: int = 600):
     try:
-        return subprocess.run(cmd, cwd=str(target), capture_output=True, text=True,
-                              timeout=timeout, env=env)
+        return subprocess.run(_resolve_win(cmd, target), cwd=str(target), capture_output=True,
+                              text=True, timeout=timeout, env=env, encoding="utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError):
         return None
 
@@ -317,7 +336,7 @@ def main() -> int:
         # 默认取 git 改动的代码文件
         try:
             r = subprocess.run(["git", "-C", str(target), "status", "--porcelain"],
-                              capture_output=True, text=True, timeout=30)
+                              capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
             files = [ln[3:].strip().split(" -> ")[-1] for ln in r.stdout.splitlines() if ln[3:].strip()]
         except (OSError, subprocess.SubprocessError):
             files = []

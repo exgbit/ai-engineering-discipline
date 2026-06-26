@@ -41,6 +41,7 @@ def _run(args, timeout=600):
         CACHE_DIR.mkdir(parents=True, exist_ok=True)  # 首次必须建,否则 persist 静默失败
         result = subprocess.run(
             [binary, "cli"] + args, capture_output=True, text=True, timeout=timeout,
+            encoding="utf-8", errors="replace",  # 二进制输出 UTF-8;非 UTF-8 locale 的 Windows 否则解码失败
         )
     except (OSError, subprocess.SubprocessError):
         return None
