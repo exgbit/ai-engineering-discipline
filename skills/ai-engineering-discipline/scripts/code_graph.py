@@ -157,6 +157,7 @@ def _changed_symbols(target, changed_files, since):
     for rel_path in changed_files:
         path = Path(target) / rel_path
         defs = _extract_defs(path)
+        file_syms: set = set()  # 必须 per-file:整文件兜底要看「本文件」是否提到符号,不是全局累加
         for line in _git_lines(target, ["diff", "--unified=0", since, "--", rel_path]):
             if line.startswith("@@"):
                 match = re.search(r"\+(\d+)", line)
@@ -169,13 +170,14 @@ def _changed_symbols(target, changed_files, since):
                         owner = item["name"]
                         break
                 if owner:
-                    symbols.add(owner)
+                    file_syms.add(owner)
             elif line.startswith("+") and not line.startswith("+++"):
                 name = _symbol_from_line(line[1:])
                 if name:
-                    symbols.add(name)
-        if not symbols:
-            symbols.update(item["name"] for item in defs)
+                    file_syms.add(name)
+        if not file_syms:
+            file_syms.update(item["name"] for item in defs)
+        symbols |= file_syms
     return symbols
 
 

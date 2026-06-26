@@ -295,6 +295,15 @@ def build_report_payload(target: Path) -> dict[str, object]:
     memory_candidates = read_text(target / "docs" / "memory" / "memory-candidates.md")
     loop_run = read_text(target / "docs" / "loops" / "current-loop-run.md")
 
+    # 区分「verify 没跑过」(missing)与「verify 跑了但结果文件损坏」(error)——
+    # 否则 read_json 把损坏 JSON 吞成空 dict,report 误报成从未验证,掩盖真实故障。
+    if verify.get("parse_error"):
+        verify_status = "error"
+        verify_reason = "verification-results.json 存在但不是合法 JSON(已损坏)。"
+    else:
+        verify_status = verify.get("overall_status", "missing")
+        verify_reason = verify.get("overall_reason", "No structured verification result found.")
+
     artifacts = {
         "current_request": artifact_exists(target, "docs/ai-engineering/current-request.md"),
         "execution_report": artifact_exists(target, "docs/ai-engineering/execution-report.md"),
@@ -324,8 +333,8 @@ def build_report_payload(target: Path) -> dict[str, object]:
             "loop_states_recorded": sum(1 for state in ["load_context", "plan", "implement", "verify", "memory", "done"] if state in loop_run),
         },
         "verification": {
-            "overall_status": verify.get("overall_status", "missing"),
-            "overall_reason": verify.get("overall_reason", "No structured verification result found."),
+            "overall_status": verify_status,
+            "overall_reason": verify_reason,
             "can_merge": verify.get("can_merge", False),
             "coverage_complete": verify.get("coverage_complete", False),
             "required_checks": required_checks,

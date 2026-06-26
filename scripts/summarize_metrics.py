@@ -20,7 +20,7 @@ RATE_FIELDS = {
 
 
 def parse_float(value: str, field: str = "") -> float:
-    value = value.strip()
+    value = (value or "").strip()  # 短行 CSV 缺列时 DictReader 给 None,按空值(0.0)处理而非崩
     if not value or value.lower() in {"n/a", "na", "null", "none", "-"}:
         return 0.0
     try:

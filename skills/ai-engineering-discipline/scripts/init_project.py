@@ -875,9 +875,16 @@ def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
             counts["missing"] += len(SKILL_NAMES)
             print(f"missing skill source parent for {flavor}")
             continue
+        other_flavor_dir = ".codex" if flavor == "claude" else ".claude"
         for skill_name in SKILL_NAMES:
             src = source_parent / skill_name
             dst = dest_root / skill_name
+            # 防跨 flavor 污染:从已装的另一 flavor(如 .claude)目录跑 --force 时,源会被
+            # 误解析成对方副本,覆盖本 flavor 会丢失副本独有文件(如 codex 的 agents/openai.yaml)。
+            if other_flavor_dir in src.resolve().parts:
+                counts["missing"] += 1
+                print(f"skip cross-flavor source for {flavor}: {src}")
+                continue
             if not (src / "SKILL.md").exists():
                 counts["missing"] += 1
                 print(f"missing skill source: {src}")
