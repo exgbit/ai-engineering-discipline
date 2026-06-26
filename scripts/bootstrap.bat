@@ -30,7 +30,7 @@ popd
 
 rem sanity 闸:框架根必须含 CLAUDE.md,否则后续 copy 全是静默失败、装出残缺目录
 if not exist "%FRAMEWORK_ROOT%\CLAUDE.md" (
-  echo Framework root looks wrong - no CLAUDE.md at "%FRAMEWORK_ROOT%" 1>&2
+  echo Framework root looks wrong - no CLAUDE.md at "%FRAMEWORK_ROOT%" ^(SCRIPT_DIR=%SCRIPT_DIR%^) 1>&2
   exit /b 1
 )
 
