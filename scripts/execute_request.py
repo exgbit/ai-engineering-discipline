@@ -1182,6 +1182,15 @@ def count_test_cases(native: list[CommandResult]) -> tuple[int, int, bool]:
                 failed += int(mf.group(1))
             parsed = True
             continue
+        mtp = re.search(r"^#\s+pass\s+(\d+)", out, re.M)   # node --test (TAP): "# pass 9"
+        mtf = re.search(r"^#\s+fail\s+(\d+)", out, re.M)   # node --test (TAP): "# fail 0"
+        if mtp or mtf:
+            if mtp:
+                passed += int(mtp.group(1))
+            if mtf:
+                failed += int(mtf.group(1))
+            parsed = True
+            continue
         mr = re.search(r"Ran\s+(\d+)\s+test", out)    # unittest: "Ran 4 tests"
         if mr:
             total = int(mr.group(1))
@@ -1424,6 +1433,11 @@ def write_verification_results(
     elif not gate_details.get("coverage_complete", False):
         overall_status = "pending"
         overall_reason = "Executed checks passed, but required coverage is incomplete."
+    elif gate_details.get("can_merge"):
+        # 门禁全绿且覆盖完整 → 整体即 verified。可选工具(如未装的 semgrep)被 skipped 不该
+        # 把整体压成 pending,否则与 can_merge=true 自相矛盾、误导采用方以为验证没跑完。
+        overall_status = "verified"
+        overall_reason = "All required checks passed and required coverage is complete."
     payload: dict[str, object] = {
         "created": now,
         "request": {

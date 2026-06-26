@@ -57,6 +57,27 @@ class DetectNativeCommandsTest(unittest.TestCase):
             self.assertFalse(any(n.startswith("python:") for n in names))
 
 
+class CountTestCasesNodeTest(unittest.TestCase):
+    def test_node_test_tap_output_is_counted(self):
+        # node --test 的 TAP 摘要:此前只认 pytest/unittest,Node 项目用例数恒为 0
+        tap = "TAP version 13\nok 1 - a\nok 2 - b\n# tests 9\n# pass 8\n# fail 1\n"
+        passed, failed, parsed = er.count_test_cases([
+            er.CommandResult(name="node:test", command=[], status="failed",
+                             exit_code=1, duration_seconds=0.0, stdout=tap, stderr=""),
+        ])
+        self.assertTrue(parsed)
+        self.assertEqual((passed, failed), (8, 1))
+
+    def test_jest_style_still_counted(self):
+        out = "Tests: 1 failed, 7 passed, 8 total\n"
+        passed, failed, parsed = er.count_test_cases([
+            er.CommandResult(name="node:test", command=[], status="failed",
+                             exit_code=1, duration_seconds=0.0, stdout=out, stderr=""),
+        ])
+        self.assertTrue(parsed)
+        self.assertEqual((passed, failed), (7, 1))
+
+
 class ImpactedSymbolNamesTest(unittest.TestCase):
     def test_framework_artifact_symbols_are_filtered(self):
         result = {"impacted_symbols": [
