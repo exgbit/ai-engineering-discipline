@@ -228,6 +228,14 @@ def write_json_artifact(path: Path, payload: dict[str, object], actions: list[st
     actions.append(f"write: {path}")
 
 
+def append_jsonl_line(path: Path, payload: dict[str, object]) -> None:
+    """向 JSONL 文件追加一行(每行一个紧凑 JSON 对象)。整行一次写入,避免半行截断。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(payload, ensure_ascii=False) + "\n"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(line)
+
+
 # 图片/PDF 等非文本需求源:脚本不读其字节,内容由 Claude 在 Claude Code 中视觉识别
 VISUAL_REQUIREMENT_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".pdf"}
 
