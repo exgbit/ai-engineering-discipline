@@ -29,7 +29,7 @@ set "FRAMEWORK_ROOT="
 call :resolve_root "%SCRIPT_DIR%.."
 if not defined FRAMEWORK_ROOT call :resolve_root "%SCRIPT_DIR%."
 if not defined FRAMEWORK_ROOT (
-  echo Cannot locate framework root (no CLAUDE.md near %SCRIPT_DIR%) 1>&2
+  echo Cannot locate framework root - no CLAUDE.md near %SCRIPT_DIR% 1>&2
   exit /b 1
 )
 
