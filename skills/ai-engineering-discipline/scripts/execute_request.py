@@ -15,7 +15,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = "<!-- ai-engineering:generated -->"
 DEFAULT_TIMEOUT_SECONDS = 600
@@ -2270,11 +2269,11 @@ def main() -> int:
     impact = None
     if request.task in TASKS_NEEDING_TESTS and not os.environ.get("AI_DISCIPLINE_GRAPH_OPTIONAL"):
         from code_graph import (
-            graph_available,
             detect_changes,
+            graph_available,
+            ignored_impact_symbols,
             impacted_symbol_names,
             impacted_untested,
-            ignored_impact_symbols,
             write_impact_report,
         )
         if not graph_available():

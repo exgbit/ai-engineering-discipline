@@ -31,9 +31,8 @@ def _git(target: Path, *args: str) -> None:
 def _assert_closure(target: Path, upstream: list[str], untested_sym: str, tested_sym: str) -> None:
     """改了底层函数后:upstream 应在 blast radius(跨文件传递性);untested_sym 受影响且没测;
     tested_sym 受影响但有真测试(不在 untested,且没被注释/字符串里的同名污染)。"""
-    from code_graph import (CACHE_DIR, detect_changes, impacted_symbol_names,
-                            impacted_untested, index_repository)
     from build_test_index import refresh_test_index
+    from code_graph import CACHE_DIR, detect_changes, impacted_symbol_names, impacted_untested, index_repository
     proj = (index_repository(target) or {}).get("project", "")
     try:
         refresh_test_index(target, [])
@@ -70,7 +69,9 @@ def _python_case(td: Path) -> None:
         "    # charge refund in a comment\n"
         "    note = 'charge refund in a string'\n"
         "    assert create_order({'x': 1})\n", encoding="utf-8")
-    _git(t, "init", "-q"); _git(t, "add", "-A"); _git(t, "commit", "-qm", "init")
+    _git(t, "init", "-q")
+    _git(t, "add", "-A")
+    _git(t, "commit", "-qm", "init")
     # 改底层 validate_order(create_order、charge 传递性依赖它)
     (t / "order" / "core.py").write_text(
         "def validate_order(o):\n    return bool(o) and len(o) > 0\n\n"
@@ -96,7 +97,9 @@ def _js_case(td: Path) -> None:
         "/* charge refund in a block comment */\n"
         "test('c', () => { const s = `charge refund template`; createOrder({x:1}); });\n",
         encoding="utf-8")
-    _git(t, "init", "-q"); _git(t, "add", "-A"); _git(t, "commit", "-qm", "init")
+    _git(t, "init", "-q")
+    _git(t, "add", "-A")
+    _git(t, "commit", "-qm", "init")
     (t / "src" / "core.js").write_text(
         "export function validateOrder(o){ return !!o && Object.keys(o).length>0; }\n"
         "export function createOrder(o){ return validateOrder(o); }\n", encoding="utf-8")

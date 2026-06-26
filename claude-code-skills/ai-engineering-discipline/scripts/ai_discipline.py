@@ -14,7 +14,6 @@ import sys
 from copy import deepcopy
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = "<!-- ai-engineering:generated -->"
 CONFIG_NAME = ".ai-discipline.json"

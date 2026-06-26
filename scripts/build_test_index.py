@@ -16,8 +16,8 @@ from pathlib import Path
 # 复用 execute_request 的符号提取与文件分类(它和本脚本同目录,是 skill 副本的权威源)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from execute_request import (  # noqa: E402
-    GENERATED,
     _CODE_EXTS,
+    GENERATED,
     _match_symbol,
     is_code_file,
     is_framework_artifact,

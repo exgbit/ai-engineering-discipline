@@ -1,0 +1,43 @@
+# 本项目通过 `git clone` + `scripts/bootstrap.sh <target>` 使用,不是 PyPI 分发包:
+# 脚本用 `Path(__file__)` 相对定位 presets/templates 等资源,依赖 clone 后的目录布局,
+# 因此刻意不提供 [build-system](避免"看似可 pip install、装完资源定位就坏"的假象)。
+# 本文件的作用是「项目元数据 + 工具配置」的单一来源:版本号、依赖声明、ruff/lint 配置。
+
+[project]
+name = "ai-engineering-discipline"
+version = "0.1.0"  # 单一版本来源;发版时只改这里
+description = "给 AI 编程套一层工程纪律:Spec / Verify / Memory + Loop 四层闭环,完成信号由机制生成而非 AI 自报。"
+readme = "README.md"
+requires-python = ">=3.9"  # 用了 from __future__ import annotations,注解不在运行时求值
+license = { text = "MIT" }
+authors = [{ name = "果比AI", email = "hi@guobi.ai" }]
+keywords = ["ai-engineering", "tdd", "spec-driven", "verification", "claude-code", "codex"]
+
+# 运行时零 Python 依赖:框架只调用外部二进制(git、可选 semgrep、必需 codebase-memory),
+# Spec/Loop/Memory 由自带 Markdown 模板 + AI agent 实现。保持这一行为空是有意的设计约束。
+dependencies = []
+
+[project.optional-dependencies]
+# 仅开发/CI 用(lint)。安装:pip install -e ".[dev]" 或 pip install ruff
+dev = ["ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://guobi.ai"
+Repository = "https://github.com/exgbit/ai-engineering-discipline"
+
+[tool.ruff]
+line-length = 120  # execute_request.py 等现有代码按较宽行宽写就,先对齐现状,避免一次性大改
+target-version = "py39"
+extend-exclude = [
+    # 两份 skill 副本由 sync_skills.py 从顶层单向生成,不单独 lint(改顶层即可)
+    "claude-code-skills",
+    "skills",
+]
+
+[tool.ruff.lint]
+# 起步阶段只开高价值、低噪音的规则集:pyflakes(F)+ 部分 pycodestyle(E)+ isort(I)。
+# 故意不一上来全开,避免给既有 2000+ 行代码刷出海量告警淹没真问题。
+select = ["F", "E", "I"]
+ignore = [
+    "E501",  # 行宽交给上面的 line-length,不额外报
+]

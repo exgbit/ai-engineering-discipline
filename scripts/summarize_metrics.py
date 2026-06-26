@@ -7,7 +7,6 @@ import argparse
 import csv
 from pathlib import Path
 
-
 RATE_FIELDS = {
     "spec_coverage_rate",
     "test_traceability_rate",

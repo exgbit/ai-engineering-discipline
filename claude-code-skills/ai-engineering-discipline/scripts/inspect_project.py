@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-import json
 import argparse
+import json
 import shutil
 from pathlib import Path
-
 
 GENERATED = "<!-- ai-engineering:generated -->"
 

@@ -7,7 +7,6 @@ import argparse
 import shutil
 from pathlib import Path
 
-
 CLAUDE_MD = """# CLAUDE.md
 
 This project uses the Spec / Verify / Memory + Loop operating protocol.

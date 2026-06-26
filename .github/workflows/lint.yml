@@ -1,0 +1,21 @@
+name: lint
+
+# ruff 静态检查(规则集与排除项见 pyproject.toml:F,E,I,排除两份 skill 副本)。
+# 只在 Linux 跑一次:lint 结果与平台无关,没必要上三平台矩阵。
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install ruff
+        run: pip install "ruff>=0.6"
+      - name: Ruff lint
+        run: ruff check .
