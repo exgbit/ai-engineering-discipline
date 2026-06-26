@@ -22,15 +22,14 @@ shift
 goto parse_args
 :parsed_args
 
+rem 按 sentinel(CLAUDE.md)定位框架根,不靠 %~dp0 的相对运算 —— 某些环境下 %~dp0 不等于
+rem scripts\(如 CI runner 上观察到的),相对 .. 会算错一层。依次试 scripts\.. 与 scripts\ 本身。
 set "SCRIPT_DIR=%~dp0"
-rem 用 pushd/%CD% 取框架根的规范绝对路径(比 `for %%~fI` 稳:真正 cd 进去再读 %CD%)
-pushd "%SCRIPT_DIR%.." || (echo Cannot resolve framework root from %SCRIPT_DIR% 1>&2 & exit /b 1)
-set "FRAMEWORK_ROOT=%CD%"
-popd
-
-rem sanity 闸:框架根必须含 CLAUDE.md,否则后续 copy 全是静默失败、装出残缺目录
-if not exist "%FRAMEWORK_ROOT%\CLAUDE.md" (
-  echo Framework root looks wrong - no CLAUDE.md at "%FRAMEWORK_ROOT%" ^(SCRIPT_DIR=%SCRIPT_DIR%^) 1>&2
+set "FRAMEWORK_ROOT="
+call :resolve_root "%SCRIPT_DIR%.."
+if not defined FRAMEWORK_ROOT call :resolve_root "%SCRIPT_DIR%."
+if not defined FRAMEWORK_ROOT (
+  echo Cannot locate framework root (no CLAUDE.md near %SCRIPT_DIR%) 1>&2
   exit /b 1
 )
 
@@ -119,6 +118,13 @@ echo   scripts\bootstrap.bat ^<target-project-path^> [--force] [--install-adapte
 echo.
 echo Installs the Spec / Verify / Memory + Loop framework into a target project.
 exit /b 1
+
+:resolve_root
+rem 若候选目录(cd 进去后)含 CLAUDE.md,则它就是框架根。%CD% 在 pushd 之后的独立行求值,正确。
+pushd %~1 2>nul || exit /b 0
+if exist "CLAUDE.md" set "FRAMEWORK_ROOT=%CD%"
+popd
+exit /b 0
 
 :mkdir
 if not exist "%~1\" mkdir "%~1"
