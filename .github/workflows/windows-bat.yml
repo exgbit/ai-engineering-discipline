@@ -1,9 +1,8 @@
 name: windows-bat
 
 # 专测 Windows 的 .bat 入口:bootstrap.bat(安装器)+ ai-discipline.bat(wrapper)。
-# smoke-test 矩阵在 windows-latest 上跑的是 .py,从不经过这些 .bat;它们之前只有静态复查,
-# 无真机验证。这里在 windows-latest 上真实执行,锁住:Python 3.9 探测、文件安装、
-# wrapper 的 %* 参数转发(含空格)、退出码。
+# smoke-test 矩阵在 windows-latest 上跑的是 .py,从不经过这些 .bat;它们之前只有静态复查。
+# 全程用单一 cmd 步骤,避免跨 shell(cmd/pwsh)的工作目录歧义。
 
 on:
   push:
@@ -18,27 +17,21 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: bootstrap.bat installs the framework into a target project
+      - name: bootstrap.bat installs the framework, then assert artifacts
         shell: cmd
         run: |
           mkdir target
           call scripts\bootstrap.bat target
-          if errorlevel 1 exit /b 1
-
-      - name: assert bootstrap.bat artifacts exist
-        shell: pwsh
-        run: |
-          $need = @(
-            "target\CLAUDE.md",
-            "target\.claude\skills\ai-engineering-discipline\SKILL.md",
-            "target\.codex\skills\ai-engineering-discipline\SKILL.md",
-            "target\.claude\commands",
-            "target\docs\specs"
-          )
-          foreach ($p in $need) {
-            if (-not (Test-Path $p)) { Write-Error "missing artifact: $p"; exit 1 }
-          }
-          Write-Host "bootstrap.bat artifacts OK"
+          if errorlevel 1 ( echo bootstrap.bat exited nonzero & exit /b 1 )
+          echo --- dir /b /s target (debug) ---
+          dir /b /s target
+          echo --------------------------------
+          if not exist "target\CLAUDE.md" ( echo MISSING target\CLAUDE.md & exit /b 1 )
+          if not exist "target\.claude\skills\ai-engineering-discipline\SKILL.md" ( echo MISSING claude SKILL.md & exit /b 1 )
+          if not exist "target\.codex\skills\ai-engineering-discipline\SKILL.md" ( echo MISSING codex SKILL.md & exit /b 1 )
+          if not exist "target\.claude\commands" ( echo MISSING .claude\commands & exit /b 1 )
+          if not exist "target\docs\specs" ( echo MISSING docs\specs & exit /b 1 )
+          echo bootstrap.bat artifacts OK
 
       - name: ai-discipline.bat wrapper forwards args (including spaces)
         shell: cmd
@@ -46,14 +39,8 @@ jobs:
           AI_DISCIPLINE_GRAPH_OPTIONAL: "1"
         run: |
           call scripts\ai-discipline.bat request target --task docs --name "win smoke" --risk low
-          if errorlevel 1 exit /b 1
-
-      - name: assert wrapper forwarded the quoted --name into the request
-        shell: pwsh
-        run: |
-          $f = "target\docs\ai-engineering\current-request.md"
-          if (-not (Test-Path $f)) { Write-Error "current-request.md not created"; exit 1 }
-          if (-not (Select-String -Path $f -Pattern "win smoke" -Quiet)) {
-            Write-Error "quoted --name 'win smoke' was not forwarded through %*"; exit 1
-          }
-          Write-Host "ai-discipline.bat arg-forwarding OK"
+          if errorlevel 1 ( echo wrapper exited nonzero & exit /b 1 )
+          if not exist "target\docs\ai-engineering\current-request.md" ( echo no current-request.md & exit /b 1 )
+          findstr /C:"win smoke" "target\docs\ai-engineering\current-request.md" >nul
+          if errorlevel 1 ( echo quoted --name not forwarded through %%* & exit /b 1 )
+          echo ai-discipline.bat arg-forwarding OK
