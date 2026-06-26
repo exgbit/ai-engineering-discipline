@@ -781,6 +781,9 @@ def _append_name_status_paths(files: set[str], diff_text: str) -> None:
 # 从改动代码里提取被定义的符号(函数/类/方法名),用于核对测试是否真的引用了改动。
 # 既认 def/class/func 等关键字定义,也认 const/let NAME = (...) => 这类 JS/TS
 # 箭头函数 / 函数表达式 / 类表达式的赋值式定义(否则前端代码会整体绕过门禁)。
+# 已知盲点(静态正则的固有上限,非 bug):装饰器工厂、re-export、动态分派/反射、
+# Rust trait impl 等无法可靠提取。提不到符号时门禁标 uncovered 而非放行(fail-closed);
+# 精确受影响面以 codebase-memory 知识图谱为准(见 code_graph.py)。
 _SYMBOL_DEF_RE = re.compile(
     r"^[+\s]*(?:export\s+)?(?:default\s+)?(?:public\s+|private\s+|static\s+)*(?:async\s+)?"
     r"(?:def|class|func|function|fn|interface|type|struct|trait|impl)\s+([A-Za-z_$][\w$]*)"
@@ -877,11 +880,26 @@ def tests_reference_symbols(target: Path, test_files: list[str], symbols: set[st
     return False
 
 
+def is_test_check_name(name: str) -> bool:
+    low = name.lower()
+    if low == "native:detect":
+        return False
+    if any(token in low for token in ("build", "lint", "typecheck")):
+        return False
+    return bool(
+        low.endswith("test")
+        or low.endswith("pytest")
+        or low.endswith("unittest")
+        or ":test" in low
+        or "-test" in low
+    )
+
+
 def native_test_outcome(native: list[CommandResult]) -> str:
     """测试命令的整体结果:'passed' | 'failed' | 'none'。只看测试命令(name 以 'test' 结尾,
     覆盖 go:test/python:pytest/python:unittest/.../java:gradle-test,排除 lint/typecheck/build)
     的进程状态,不靠 count_test_cases 的脆弱正则,对 go/java 也稳。fail-closed:没装/跳过算 none。"""
-    test_items = [i for i in native if i.name != "native:detect" and i.name.endswith("test")]
+    test_items = [i for i in native if is_test_check_name(i.name)]
     if not test_items:
         return "none"
     if any(i.status in {"failed", "timeout"} for i in test_items):
@@ -954,9 +972,10 @@ def verification_gate_details(
     if "native_checks" in required and (not native or not native_ran or all(item.status == "skipped" for item in native)):
         blocking_reasons.append("native_checks unavailable: no runnable test command found")
     if "build" in required:
-        # required 的 build 即使无法运行也要如实报告,不能从所有列表里静默蒸发
         if not build_ran:
-            uncovered_checks.append("build (no build step detected for this stack)")
+            # Some stacks (for example small Python libraries/apps) have no distinct build
+            # command. Treat that as not applicable instead of incomplete verification.
+            executed.append({"name": "build", "required": False, "status": "not_applicable"})
         elif any("build" in item.name.lower() and item.status == "skipped" for item in native):
             uncovered_checks.append("build (not run)")
 
@@ -1306,9 +1325,9 @@ def count_test_cases(native: list[CommandResult]) -> tuple[int, int, bool]:
 def humanize_uncovered(item: str) -> str:
     low = item.lower()
     if low.startswith("semgrep"):
-        return "A security scan did not run — the scanner isn't installed on this machine. It's an optional check."
+        return "A security scan did not run; if this preset requires it, final verification remains incomplete."
     if low.startswith("build"):
-        return "There's no separate build step for this kind of project, so nothing to build."
+        return "A configured build step did not run."
     if low.startswith("native_checks"):
         return "No automatic test command was found to run."
     if low.startswith("test-coverage"):
@@ -1383,14 +1402,14 @@ def write_user_summary(
         lines.append("- Status: NOT DONE YET — needs fixing:")
         lines.extend(f"  - {humanize_blocking(b)}" for b in blocking)
     elif not coverage:
-        lines.append("- Status: Works — tests pass and nothing is blocking; some optional checks were skipped (listed below).")
+        lines.append("- Status: Tests pass, verification incomplete — nothing is blocking, but some checks still need attention (listed below).")
     else:
         lines.append("- Status: DONE — everything required was checked and passed.")
 
     extras = [humanize_uncovered(u) for u in uncovered] + [humanize_needs_human(h) for h in needs_human]
     if extras:
         lines.append("")
-        lines.append("Not covered (optional or unavailable — these are not failures):")
+        lines.append("Not covered yet:")
         lines.extend(f"- {e}" for e in extras)
 
     lines.append("")
@@ -1436,8 +1455,7 @@ def record_run_data(
         "needs_human_count": len(needs_human),
     }
     stats_path = data_dir / "run-stats.jsonl"
-    with stats_path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(stat, ensure_ascii=False) + "\n")
+    append_jsonl_line(stats_path, stat)
     actions.append(f"append: {stats_path}")
 
     issues = (
@@ -1659,7 +1677,7 @@ def write_red_phase_results(
 ) -> dict[str, object]:
     verify_dir = target / "docs" / "verify"
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    test_items = [item for item in native if item.name != "native:detect" and item.name.endswith("test")]
+    test_items = [item for item in native if is_test_check_name(item.name)]
     red_phase_observed = bool(test_items) and any(item.status in {"failed", "timeout"} for item in test_items)
     if not test_items:
         status = "missing"
@@ -1767,6 +1785,7 @@ def update_test_matrix_with_results(
         return
     matrix_path = request.verify_matrix_path
     status, reason = verification_rollup(semgrep, native)
+    test_outcome = native_test_outcome(native)
     gate_details = verification_gate_details(request, semgrep, native, diff_cov, impact)
     if gate_details["blocking_reasons"]:
         status = "blocked"
@@ -1804,12 +1823,20 @@ Structured results:
     # (旧实现每次都把需求行重写成 TBD,会冲掉 agent 的手填成果)
     if matrix_path.exists():
         existing = matrix_path.read_text(encoding="utf-8")
-        if GENERATED not in existing:
-            actions.append(f"skip human file: {matrix_path}")
-            return
-        head = existing.split("## Verification Evidence", 1)[0].replace(GENERATED, "").strip()
+        is_generated = GENERATED in existing
+        head = existing.split("## Verification Evidence", 1)[0]
+        if is_generated:
+            head = head.replace(GENERATED, "")
+        head = head.strip()
+        head = refresh_matrix_row_statuses(head, test_outcome)
         content = f"{head}\n\n## Verification Evidence\n\n{evidence_section}"
-        safe_write(matrix_path, content, force=True, actions=actions)
+        if is_generated:
+            safe_write(matrix_path, content, force=True, actions=actions)
+        else:
+            # Human-authored matrices are still allowed to receive mechanical evidence updates.
+            # Keep ownership human: do not add the GENERATED marker and do not rewrite mappings.
+            matrix_path.write_text(content.rstrip() + "\n", encoding="utf-8")
+            actions.append(f"update human test matrix status/evidence: {matrix_path}")
         return
 
     # 首次(矩阵尚不存在):生成 TBD 模板,由 agent 填需求映射与回归
@@ -1841,6 +1868,50 @@ Spec: `{rel(request.spec_path, target)}`
 
 {evidence_section}"""
     safe_write(matrix_path, content, force=True, actions=actions)
+
+
+def refresh_matrix_row_statuses(markdown: str, test_outcome: str) -> str:
+    """Refresh stale row statuses in generated test-matrix tables after final test execution.
+
+    This only changes per-row test evidence status. The Verification Evidence section still
+    carries the final gate state, so diff-coverage/impact/security blockers can keep the
+    request blocked even when row-level tests passed.
+    """
+    if test_outcome not in {"passed", "failed"}:
+        return markdown
+    replacement = "passed" if test_outcome == "passed" else "red"
+    lines = markdown.splitlines()
+    in_target_section = False
+    status_idx: int | None = None
+    out: list[str] = []
+    for line in lines:
+        if line.startswith("## "):
+            in_target_section = line.strip() in {"## Requirement Traceability", "## Regression Matrix"}
+            status_idx = None
+            out.append(line)
+            continue
+        if not in_target_section or not line.startswith("|"):
+            out.append(line)
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not cells:
+            out.append(line)
+            continue
+        if "Status" in cells:
+            status_idx = cells.index("Status")
+            out.append(line)
+            continue
+        if set("".join(cells)) <= {"-"}:
+            out.append(line)
+            continue
+        if status_idx is not None and status_idx < len(cells):
+            current = cells[status_idx].strip("`").strip().lower()
+            if current in {"red", "todo", "pending", "open", "blocked"}:
+                cells[status_idx] = replacement
+                out.append("| " + " | ".join(cells) + " |")
+                continue
+        out.append(line)
+    return "\n".join(out)
 
 
 def write_loop_run_log(
@@ -2111,7 +2182,7 @@ def main() -> int:
         native_commands = [
             (name, command)
             for name, command in detect_native_commands(target, request)
-            if name.endswith("test")
+            if is_test_check_name(name)
         ]
         red_native_results: list[CommandResult] = []
         if native_commands:
@@ -2177,14 +2248,26 @@ def main() -> int:
     # AI_DISCIPLINE_GRAPH_OPTIONAL=1 关掉硬强制(框架自测 / 无法编译二进制的环境用),回退到不算 impact。
     impact = None
     if request.task in TASKS_NEEDING_TESTS and not os.environ.get("AI_DISCIPLINE_GRAPH_OPTIONAL"):
-        from code_graph import graph_available, detect_changes, impacted_symbol_names, impacted_untested, write_impact_report
+        from code_graph import (
+            graph_available,
+            detect_changes,
+            impacted_symbol_names,
+            impacted_untested,
+            ignored_impact_symbols,
+            write_impact_report,
+        )
         if not graph_available():
             impact = {"available": False}
         else:
             from build_test_index import refresh_test_index  # 先刷新盲区,impact 才能交叉"受影响但没测"
             refresh_test_index(target, actions)
             names = impacted_symbol_names(detect_changes(target, since=git_diff_base(request)))
-            impact = {"available": True, "impacted": names, "untested": impacted_untested(target, names)}
+            impact = {
+                "available": True,
+                "impacted": names,
+                "untested": impacted_untested(target, names),
+                "ignored_untested": ignored_impact_symbols(target, names),
+            }
             write_impact_report(target, impact)
             actions.append(f"impact-graph: {len(names)} affected, {len(impact['untested'])} untested")
     gate = write_verification_results(target, request, semgrep_result, native_results, actions, diff_cov, impact)

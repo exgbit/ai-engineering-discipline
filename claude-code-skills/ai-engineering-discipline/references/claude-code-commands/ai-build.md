@@ -36,7 +36,7 @@ Otherwise follow the `ai-engineering-discipline` skill's "Default Entry: One Pla
 6. **Verify, then refresh the report** (so the pilot report isn't left showing a stale pre-verify snapshot):
 
    ```bash
-   "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks --run-diff-coverage --fail-on-verify-failure --fail-on-incomplete-coverage
+   "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks --run-diff-coverage --run-semgrep --fail-on-verify-failure --fail-on-incomplete-coverage
    "$PYTHON" .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
    ```
 

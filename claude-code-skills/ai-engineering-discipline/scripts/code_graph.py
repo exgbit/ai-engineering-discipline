@@ -273,6 +273,21 @@ def impacted_symbol_names(detect_result):
 def impacted_untested(target, impacted_names):
     """受影响接口 ∩ test-index 盲区(没测试守护的)= 受影响但没测的接口。
     没有 test-index(还没建)时返回空,不误判。"""
+    blind = _impacted_blind_rows(target, impacted_names)
+    return sorted(row["symbol"] for row in blind if not _ignored_impact_reason(target, row))
+
+
+def ignored_impact_symbols(target, impacted_names):
+    """返回已降噪的受影响盲区符号,用于报告透明呈现(不参与阻断)。"""
+    ignored = []
+    for row in _impacted_blind_rows(target, impacted_names):
+        reason = _ignored_impact_reason(target, row)
+        if reason:
+            ignored.append({"symbol": row["symbol"], "reason": reason})
+    return sorted(ignored, key=lambda row: row["symbol"])
+
+
+def _impacted_blind_rows(target, impacted_names):
     if not impacted_names:
         return []
     ti = Path(target) / "docs" / "verify" / "test-index.json"
@@ -280,8 +295,53 @@ def impacted_untested(target, impacted_names):
         data = json.loads(ti.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    blind = {b.get("symbol") for b in data.get("blind_spots") or []}
-    return sorted(set(impacted_names) & blind)
+    impacted = set(impacted_names)
+    rows = []
+    seen = set()
+    for row in data.get("blind_spots") or []:
+        symbol = row.get("symbol")
+        if not symbol or symbol not in impacted or symbol in seen:
+            continue
+        rows.append(row)
+        seen.add(symbol)
+    return rows
+
+
+def _ignored_impact_reason(target, row):
+    name = str(row.get("symbol") or "")
+    if not name:
+        return "empty symbol"
+    if name.startswith("_"):
+        return "private implementation detail"
+    if row.get("kind") == "class" and _is_python_dataclass(target, row):
+        return "dataclass DTO"
+    return ""
+
+
+def _is_python_dataclass(target, row):
+    rel = row.get("defined_in")
+    name = row.get("symbol")
+    if not rel or not name or not str(rel).endswith(".py"):
+        return False
+    path = Path(target) / str(rel)
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return False
+    class_re = re.compile(rf"^\s*class\s+{re.escape(str(name))}\b")
+    for idx, line in enumerate(lines):
+        if not class_re.match(line):
+            continue
+        for prev in range(idx - 1, max(-1, idx - 8), -1):
+            stripped = lines[prev].strip()
+            if not stripped:
+                continue
+            if stripped.startswith("@"):
+                if stripped.startswith("@dataclass") or stripped.endswith(".dataclass"):
+                    return True
+                continue
+            break
+    return False
 
 
 def write_impact_report(target, impact):
@@ -290,6 +350,7 @@ def write_impact_report(target, impact):
     out.mkdir(parents=True, exist_ok=True)
     impacted = impact.get("impacted") or []
     untested = impact.get("untested") or []
+    ignored = impact.get("ignored_untested") or []
     lines = [
         "<!-- ai-engineering:generated -->",
         "# Impact Analysis (knowledge-graph blast radius)",
@@ -299,11 +360,15 @@ def write_impact_report(target, impact):
         "",
         f"- Affected interfaces: {len(impacted)}",
         f"- Affected **without** a guarding test: {len(untested)}",
+        f"- Noise-filtered affected symbols: {len(ignored)}",
         "",
         "## Affected but untested (add tests first)",
     ]
     lines += ([f"- `{n}`" for n in untested]
               or ["- (none — all affected interfaces have tests, or no test-index yet)"])
+    lines += ["", "## Noise-filtered affected symbols", ""]
+    lines += ([f"- `{row.get('symbol')}` — {row.get('reason')}" for row in ignored]
+              or ["- (none)"])
     lines += ["", "## All affected interfaces", ""]
     lines += [f"- `{n}`" for n in impacted] or ["- (none)"]
     (out / "impact-graph.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

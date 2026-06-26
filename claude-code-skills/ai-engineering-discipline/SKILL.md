@@ -54,7 +54,7 @@ This is the primary way to use the framework. The user should never have to pick
    This writes `docs/verify/red-phase-results.json` / `.md`; tests are expected to fail here. If they do not fail, fix the tests before implementation. Then implement in scoped steps following the loop until the tests pass. For feature/bugfix/refactor/migration work you MUST add or update tests that actually exercise the changed code (they reference the changed functions/classes), and the final full test suite must pass. The gate blocks code changes with no test, unrelated tests, missing runnable tests, affected interfaces without guarding tests, missing required diff coverage, a missing knowledge graph, or a graph that returns no affected interface for changed business code. Before editing code, state the plan in one plain sentence and proceed unless the user objects.
 6. **Verify, then refresh the report.** Run native checks with diff coverage (and Semgrep if installed), fail on blocking or incomplete required evidence, then refresh the pilot report so it is not left showing a stale pre-verify snapshot:
    ```bash
-   python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks --run-diff-coverage --fail-on-verify-failure --fail-on-incomplete-coverage
+   python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py execute . --run-native-checks --run-diff-coverage --run-semgrep --fail-on-verify-failure --fail-on-incomplete-coverage
    python .claude/skills/ai-engineering-discipline/scripts/ai_discipline.py report .
    ```
    Read `can_merge` / `coverage_complete` / blocking reasons from `docs/verify/verification-results.json`.

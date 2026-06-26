@@ -124,7 +124,8 @@ def build_index(target: Path) -> dict:
     code_files = [f for f in files if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
     test_files = [f for f in files if is_test_file(f) and f.endswith(_CODE_EXTS) and not is_framework_artifact(f)]
 
-    # 代码符号: name -> {defined_in, kind}(同名只记首次定义)
+    # 代码符号: name -> {defined_in, kind}(同名只记首次定义;跨文件同名的后续定义会被合并,
+    # 属静态索引的已知局限,见 _render_md 的 Limitations 段;盲区漏报由门禁的图谱通路兜底)
     symbols: dict[str, dict] = {}
     for cf in code_files:
         for line in _read_lines(target / cf):

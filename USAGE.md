@@ -84,11 +84,10 @@ scripts\bootstrap.bat C:\path\to\你的项目
 ```
 # Summary: 按优先级排序
 - Tests: 4 passed, 0 failed
-- Status: Works — tests pass and nothing is blocking; some optional checks were skipped (listed below).
+- Status: Tests pass, verification incomplete — nothing is blocking, but some checks still need attention (listed below).
 
-Not covered (optional or unavailable — these are not failures):
-- There's no separate build step for this kind of project, so nothing to build.
-- A security scan did not run — the scanner isn't installed on this machine. It's an optional check.
+Not covered yet:
+- A security scan did not run; if this preset requires it, final verification remains incomplete.
 ```
 
 **三种状态,看 `Status` 一行就懂:**
@@ -96,7 +95,7 @@ Not covered (optional or unavailable — these are not failures):
 | Status | 含义 | 你该做什么 |
 |---|---|---|
 | `DONE` | 做完了,所有该查的都查了、过了 | 放心用 |
-| `Works — ...optional checks were skipped` | 功能好了、测试过了,但有**可选**检查没跑(比如安全扫描没装) | 可以用;括号里列的是可选项,不是错误 |
+| `Tests pass, verification incomplete` | 功能测试过了,但还有工具/人工/环境检查没完整覆盖 | 看未覆盖项;严格模式下需要补齐或换合适 preset |
 | `NOT DONE YET — needs fixing` | 还有**必须解决**的问题 | 看它列出的原因(大白话),让 AI 接着改 |
 
 > 这份大白话是**框架机制保证**的——就算 AI 一句翻译都不做,你打开这个文件也能看懂。技术细节(如果你想看)在 `docs/verify/verification-results.json`。
@@ -153,6 +152,7 @@ python $S run     .  --task feature --name "退款审批" --requirements docs/re
 python $S request .  --task feature --name "退款审批" --requirements docs/req.md   # 只建请求+生成产物
 python $S execute .  --run-native-checks                                          # 跑验证
 python $S execute .  --run-native-checks --run-diff-coverage                      # 验证 + diff-coverage(改动行是否被测试真执行,需覆盖率工具)
+python $S execute .  --run-native-checks --run-diff-coverage --run-semgrep --fail-on-verify-failure --fail-on-incomplete-coverage  # 严格验证(含安全扫描)
 python $S verify  .                                                               # 强制跑全部检查
 python $S report  .                                                               # 刷新汇总报告
 python $S metrics .                                                               # 聚合多次/多项目的指标
@@ -210,8 +210,8 @@ python $S config .          # 查看当前配置
 **Q: 第一次验证就红灯,正常吗?**
 A: 常见。多半是规格里的确认复选框还没勾,或影响分析没填完。AI 会补好重跑。它是"必须填清楚才放行",不是出错。
 
-**Q: 显示 `Status: Works` 但不是 `DONE`,能用吗?**
-A: 能。`Works` 表示功能好了、测试过了、没有阻断问题,只是有**可选**检查没跑(比如机器没装安全扫描)。括号里列的都是可选项,不是失败。
+**Q: 显示 `Status: Tests pass, verification incomplete` 但不是 `DONE`,能用吗?**
+A: 功能测试已经过了,且没有阻断问题;但还有检查没完整覆盖。严格模式下应补齐这些检查、安装缺失工具,或换一个符合项目栈的 preset。
 
 **Q: 它会自动改我的业务代码吗?**
 A: 用 `/ai-build` 时会(这就是"实现")。但有红线:涉及破坏性操作、生产数据、密钥、权限时它会停下来问你。
