@@ -30,6 +30,25 @@ if not exist "%TARGET_DIR%\" (
   exit /b 1
 )
 
+rem 与 bootstrap.sh 一致:复制任何文件前先校验 Python 3.9+,缺失则早失败,不留装一半的现场
+set "PYTHON_CMD="
+where py >nul 2>nul
+if not errorlevel 1 (
+  py -3 -c "import sys; sys.exit(0 if sys.version_info[:2]>=(3,9) else 1)" >nul 2>nul
+  if not errorlevel 1 set "PYTHON_CMD=py -3"
+)
+if not defined PYTHON_CMD (
+  where python >nul 2>nul
+  if not errorlevel 1 (
+    python -c "import sys; sys.exit(0 if sys.version_info[:2]>=(3,9) else 1)" >nul 2>nul
+    if not errorlevel 1 set "PYTHON_CMD=python"
+  )
+)
+if not defined PYTHON_CMD (
+  echo Python 3.9+ is required ^(py -3 or python not found^). 1>&2
+  exit /b 1
+)
+
 call :mkdir "%TARGET_DIR%\docs\specs"
 call :mkdir "%TARGET_DIR%\docs\verify"
 call :mkdir "%TARGET_DIR%\docs\memory"
@@ -67,8 +86,10 @@ call :write_project_rules "%TARGET_DIR%\docs\memory\project-rules.md"
 call :write_module_map "%TARGET_DIR%\docs\memory\module-map.md"
 call :write_pitfalls "%TARGET_DIR%\docs\memory\pitfalls.md"
 
+rem 适配器安装失败不中断 bootstrap(框架文件已装好),但要像 bootstrap.sh 一样显式告警
 if "%INSTALL_ADAPTERS%"=="1" (
   call :run_python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%" --execute
+  if errorlevel 1 echo Warning: adapter install reported failures; review %TARGET_DIR%\docs\adapters\default-stack.md. 1>&2
 ) else (
   call :run_python "%FRAMEWORK_ROOT%\scripts\install_default_adapters.py" "%TARGET_DIR%"
 )
@@ -134,12 +155,8 @@ echo installed: %DST%
 exit /b 0
 
 :run_python
-where py >nul 2>nul
-if not errorlevel 1 (
-  py -3 %*
-  exit /b %ERRORLEVEL%
-)
-python %*
+rem 用前面已校验过的解释器(PYTHON_CMD 在文件复制前由 Python 3.9+ 检查解析得到)
+%PYTHON_CMD% %*
 exit /b %ERRORLEVEL%
 
 :write_project_rules

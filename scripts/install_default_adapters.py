@@ -76,7 +76,12 @@ def command_for(layer: dict[str, object]) -> list[str]:
 def executable_command_for(layer: dict[str, object]) -> list[str]:
     command = command_for(layer)
     if command and command[0] == "python":
-        return [sys.executable, *command[1:]]
+        command = [sys.executable, *command[1:]]
+    # venv 内 `pip install --user` 必然失败(user site 在 venv 不可见);venv 本身已是隔离
+    # 目标,直接装进当前环境即可,所以剥掉 --user。venv 外仍保留 --user(免 sudo 全局装)。
+    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
+    if in_venv and "pip" in command and "install" in command:
+        command = [arg for arg in command if arg != "--user"]
     return command
 
 
