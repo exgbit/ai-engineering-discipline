@@ -48,7 +48,9 @@ Classify each request before acting:
 | Refactor | refactor loop | unchanged behavior proof, regression tests |
 | Migration | migration loop | rollout plan, rollback plan, data safety checks |
 | Documentation | docs loop | source consistency and links |
-| Framework change | framework loop | updated templates, examples, and metrics if affected |
+| Verify | verify loop | tests/checks run and structured results recorded |
+| Memory | memory loop | durable rules/pitfalls/loops written back to project context |
+| Framework change | refactor or docs loop | updated templates, examples, and metrics if affected (no dedicated `--task framework`; classify as refactor/docs) |
 
 If a repeated task does not have a loop yet, create or update a loop runbook in `docs/loops/` or `framework/`.
 

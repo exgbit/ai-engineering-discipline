@@ -57,6 +57,8 @@ The included sample metrics are synthetic. A real pilot should track:
 | escaped_defects | down |
 | memory_update_rate | up |
 | loop_success_rate | up |
+| loop_retry_rate | down |
+| loop_escalation_rate | down |
 | loop_budget_overrun_rate | down |
 
 Use a four-week pilot before making claims about impact.
@@ -64,6 +66,5 @@ Use a four-week pilot before making claims about impact.
 ## Recommended Next Optimizations
 
 1. Add exact requirement-to-test mapping instead of global verification status propagation.
-2. Add real diff-coverage on top of the current symbol-reference check, to confirm the changed lines are executed by the tests.
-3. Add richer policy controls for which native commands are allowed per company.
-4. Add company-specific preset overlays.
+2. Add richer policy controls for which native commands are allowed per company.
+3. Add company-specific preset overlays.

@@ -284,6 +284,17 @@ def md_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ").strip()
 
 
+def fenced(content: str, info: str = "text") -> str:
+    """把任意文本安全包进代码围栏。用比内容里最长连续反引号串多一位的围栏长度,防止
+    内容自带的 ``` 提前闭合外层块(需求原文/工具 stderr 常含 markdown 代码块)。"""
+    longest = run = 0
+    for ch in content:
+        run = run + 1 if ch == "`" else 0
+        longest = max(longest, run)
+    ticks = "`" * max(3, longest + 1)
+    return f"{ticks}{info}\n{content}\n{ticks}"
+
+
 def memory_artifact_rows(target: Path) -> str:
     rows = []
     for rel_path, purpose in [
@@ -334,9 +345,7 @@ def write_spec(target: Path, request: ManagedRequest, force: bool, actions: list
             excerpts.extend([
                 f"### {req_id}: `{rel(source, target)}`",
                 "",
-                "```text",
-                requirement_excerpt(source),
-                "```",
+                fenced(requirement_excerpt(source)),
                 "",
             ])
     else:
@@ -520,7 +529,7 @@ Failure:
 
 ## Budgets
 
-Loop Engineering 要求每个 loop 有明确预算(见 framework/loop-engineering.md)。未设则填 TBD 后由负责人补。
+Loop Engineering 要求每个 loop 有明确预算(token / 时长 / 成本 / 失败次数)。未设则填 TBD 后由负责人补。
 
 - Token budget: `{loop.get("token_budget", "TBD")}`
 - Wall-time budget: `{loop.get("wall_time_budget", "TBD")}`
@@ -1468,9 +1477,7 @@ def write_verification_results(
         if semgrep and semgrep.stderr:
             lines.extend([
                 "",
-                "```text",
-                semgrep.stderr.strip(),
-                "```",
+                fenced(semgrep.stderr.strip()),
             ])
     lines.extend(["", "## Native Check Commands", ""])
     if native:
@@ -1484,15 +1491,11 @@ def write_verification_results(
                 "",
                 "Stdout:",
                 "",
-                "```text",
-                (item.stdout or "No stdout.").strip(),
-                "```",
+                fenced((item.stdout or "No stdout.").strip()),
                 "",
                 "Stderr:",
                 "",
-                "```text",
-                (item.stderr or "No stderr.").strip(),
-                "```",
+                fenced((item.stderr or "No stderr.").strip()),
                 "",
             ])
     else:
@@ -1584,15 +1587,11 @@ def write_red_phase_results(
                 "",
                 "Stdout:",
                 "",
-                "```text",
-                (item.stdout or "No stdout.").strip(),
-                "```",
+                fenced((item.stdout or "No stdout.").strip()),
                 "",
                 "Stderr:",
                 "",
-                "```text",
-                (item.stderr or "No stderr.").strip(),
-                "```",
+                fenced((item.stderr or "No stderr.").strip()),
                 "",
             ])
     else:
