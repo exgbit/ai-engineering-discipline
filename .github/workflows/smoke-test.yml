@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      - name: Unit tests (diff-coverage parsers + verification gate)
+        run: python -m unittest discover -s tests -p "test_*.py"
       - name: End-to-end smoke test
         run: python scripts/smoke_test.py
       - name: Knowledge-graph impact smoke (skips if codebase-memory absent)
