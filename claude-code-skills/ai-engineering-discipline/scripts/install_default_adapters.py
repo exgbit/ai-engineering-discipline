@@ -192,7 +192,12 @@ def main() -> int:
     install_notes: dict[str, InstallOutcome] = {}
     for layer_name, layer in layers.items():
         if layer_name not in selected:
-            statuses[layer_name] = "not selected"
+            # 必需层(如 impact 知识图谱)即使本次没选,也别显示成 "not selected" 误导用户
+            # 以为没启用——它是硬闸,只是不由本命令安装(需另行编译,见 scripts/code_graph.py)。
+            if layer.get("required"):
+                statuses[layer_name] = "REQUIRED (build separately — see scripts/code_graph.py; run doctor to check)"
+            else:
+                statuses[layer_name] = "not selected"
             continue
         if not layer.get("runtime_integrated", False):
             if layer.get("required"):

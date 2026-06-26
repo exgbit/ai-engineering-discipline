@@ -92,7 +92,17 @@ def _is_code_path(path):
 
 def _is_generated_or_vendor(path):
     parts = set(Path(path).parts)
-    return bool(parts & {"node_modules", "vendor", "dist", "build", "target", ".git", "__pycache__"})
+    return bool(parts & {
+        "node_modules", "vendor", "dist", "build", "target", ".git", "__pycache__",
+        ".claude", ".codex", ".github",  # 框架装进目标项目的产物,不是用户源码
+    })
+
+
+def _is_framework_artifact_path(path):
+    """框架装进目标项目的目录(skill 副本 / 命令 / docs / CI)——不是用户源码,不应计入受影响接口。
+    bootstrap 会把整套框架脚本拷进 .claude/.codex,否则知识图谱会把它们算进 blast radius。"""
+    p = "/" + str(path or "").replace("\\", "/").strip("/")
+    return any(seg in p for seg in ("/.claude/", "/.codex/", "/.github/", "/docs/"))
 
 
 def _git_lines(target, args):
@@ -263,6 +273,8 @@ def impacted_symbol_names(detect_result):
     names = []
     for sym in detect_result.get("impacted_symbols") or []:
         if _looks_like_test(sym.get("file")):
+            continue
+        if _is_framework_artifact_path(sym.get("file")):
             continue
         label = str(sym.get("label", ""))
         if label in {"Function", "Method", "Class", "Interface", "Struct", "Type", "Enum"}:

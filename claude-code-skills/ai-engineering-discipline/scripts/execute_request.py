@@ -1061,7 +1061,20 @@ def detect_native_commands(target: Path, request: ManagedRequest) -> list[tuple[
         if request.verify_params.get("require_build"):
             commands.append(("go:build", ["go", "build", "./..."]))
 
-    if (target / "pyproject.toml").exists() or (target / "requirements.txt").exists() or (target / "pytest.ini").exists():
+    py_project = (
+        (target / "pyproject.toml").exists() or (target / "requirements.txt").exists()
+        or (target / "pytest.ini").exists() or (target / "setup.py").exists()
+        or (target / "setup.cfg").exists() or (target / "tox.ini").exists()
+        or (target / "conftest.py").exists()
+    )
+    if not py_project:
+        # 无任何配置文件,但 tests/ 或 test/ 下有 Python 测试文件 → 仍是可跑测试的 Python 项目。
+        # 否则最小项目(只有 order/ + tests/)探测不到命令,测试闸与 diff-coverage 会被静默跳过。
+        py_project = any(
+            base.is_dir() and (any(base.rglob("test_*.py")) or any(base.rglob("*_test.py")))
+            for base in (target / "tests", target / "test")
+        )
+    if py_project:
         # 优先 pytest(若项目用 pytest 或本机已装),否则回退标准库 unittest(总能跑)
         if (target / "pytest.ini").exists() or shutil.which("pytest"):
             commands.append(("python:pytest", [sys.executable, "-m", "pytest"]))

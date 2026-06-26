@@ -104,10 +104,21 @@ def _coverage_python(target: Path):
     return covered, "coverage.py"
 
 
+def _is_python_project(target: Path) -> bool:
+    if any((target / f).exists() for f in (
+        "pyproject.toml", "setup.py", "setup.cfg", "tox.ini", "requirements.txt", "pytest.ini", "conftest.py",
+    )):
+        return True
+    # 无配置文件时,tests/ 或 test/ 下有 Python 测试文件也算(与 detect_native_commands 口径一致)
+    return any(
+        base.is_dir() and (any(base.rglob("test_*.py")) or any(base.rglob("*_test.py")))
+        for base in (target / "tests", target / "test")
+    )
+
+
 def collect_coverage(target: Path):
     """探测项目语言并收集行覆盖。返回 ({relpath:(executed,executable)}, tool) 或 (None, reason)。"""
-    if (target / "pyproject.toml").exists() or (target / "setup.py").exists() \
-            or (target / "requirements.txt").exists() or (target / "pytest.ini").exists():
+    if _is_python_project(target):
         return _coverage_python(target)
     if (target / "go.mod").exists():
         return _coverage_go(target)
