@@ -25,6 +25,7 @@ OUTPUT_LIMIT = 12000
 @dataclass
 class ManagedRequest:
     path: Path
+    target: Path  # 目标项目根;不要用 path.parents[2] 反推(--request 自定义路径时会错)
     task: str
     name: str
     execute: bool
@@ -168,6 +169,7 @@ def parse_request(target: Path, request_path: Path) -> ManagedRequest:
 
     return ManagedRequest(
         path=request_path,
+        target=target,
         task=task,
         name=name,
         execute=execute,
@@ -616,7 +618,18 @@ def run_script_if_available(name: str, target: Path, actions: list[str]) -> None
     if not script:
         actions.append(f"skip missing script: {name}")
         return
-    result = subprocess.run([sys.executable, str(script), str(target)], text=True, capture_output=True)
+    try:
+        # 加 timeout:inspect_project 遍历目标仓库,超大仓不至于无限 hang 卡死整条流程
+        result = subprocess.run(
+            [sys.executable, str(script), str(target)],
+            text=True, capture_output=True, timeout=180,
+        )
+    except subprocess.TimeoutExpired:
+        actions.append(f"failed: {name}: timed out after 180s")
+        return
+    except OSError as exc:
+        actions.append(f"failed: {name}: {exc}")
+        return
     if result.returncode == 0:
         actions.append(f"ok: {name}")
     else:
@@ -993,7 +1006,7 @@ def verification_gate_details(
     test_evidence_ok = None
     changed_code_count = 0
     if request.task in TASKS_NEEDING_TESTS:
-        repo = request.path.parents[2]
+        repo = request.target
         base_ref = git_diff_base(request)
         changed = git_changed_files(repo, base_ref)
         if changed is None:

@@ -185,8 +185,11 @@ def _coverage_js(target: Path):
             return None, "js tests did not pass (coverage not trusted)"
         final = Path(td) / "coverage-final.json"
         if not final.exists():
+            # 工具忽略 --reports-dir 时会写到默认 coverage/ 目录;只认本次新生成的
+            # (mtime 不早于临时目录创建时间),避免捡到上次遗留的旧文件当成本次覆盖(假覆盖)。
             alt = target / "coverage" / "coverage-final.json"
-            final = alt if alt.exists() else final
+            if alt.exists() and alt.stat().st_mtime >= Path(td).stat().st_mtime:
+                final = alt
         if not final.exists():
             return None, "no coverage-final.json produced"
         try:
