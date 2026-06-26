@@ -17,6 +17,15 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: debug runner layout
+        shell: cmd
+        run: |
+          echo CWD=%CD%
+          if exist CLAUDE.md (echo CLAUDE.md present at CWD) else (echo NO CLAUDE.md at CWD)
+          if exist scripts\bootstrap.bat (echo scripts\bootstrap.bat present) else (echo NO scripts\bootstrap.bat)
+          echo --- dir /b (CWD) ---
+          dir /b
+
       - name: bootstrap.bat installs the framework, then assert artifacts
         shell: cmd
         run: |
