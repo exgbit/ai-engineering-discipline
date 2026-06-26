@@ -1,0 +1,59 @@
+name: windows-bat
+
+# 专测 Windows 的 .bat 入口:bootstrap.bat(安装器)+ ai-discipline.bat(wrapper)。
+# smoke-test 矩阵在 windows-latest 上跑的是 .py,从不经过这些 .bat;它们之前只有静态复查,
+# 无真机验证。这里在 windows-latest 上真实执行,锁住:Python 3.9 探测、文件安装、
+# wrapper 的 %* 参数转发(含空格)、退出码。
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  bat:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: bootstrap.bat installs the framework into a target project
+        shell: cmd
+        run: |
+          mkdir target
+          call scripts\bootstrap.bat target
+          if errorlevel 1 exit /b 1
+
+      - name: assert bootstrap.bat artifacts exist
+        shell: pwsh
+        run: |
+          $need = @(
+            "target\CLAUDE.md",
+            "target\.claude\skills\ai-engineering-discipline\SKILL.md",
+            "target\.codex\skills\ai-engineering-discipline\SKILL.md",
+            "target\.claude\commands",
+            "target\docs\specs"
+          )
+          foreach ($p in $need) {
+            if (-not (Test-Path $p)) { Write-Error "missing artifact: $p"; exit 1 }
+          }
+          Write-Host "bootstrap.bat artifacts OK"
+
+      - name: ai-discipline.bat wrapper forwards args (including spaces)
+        shell: cmd
+        env:
+          AI_DISCIPLINE_GRAPH_OPTIONAL: "1"
+        run: |
+          call scripts\ai-discipline.bat request target --task docs --name "win smoke" --risk low
+          if errorlevel 1 exit /b 1
+
+      - name: assert wrapper forwarded the quoted --name into the request
+        shell: pwsh
+        run: |
+          $f = "target\docs\ai-engineering\current-request.md"
+          if (-not (Test-Path $f)) { Write-Error "current-request.md not created"; exit 1 }
+          if (-not (Select-String -Path $f -Pattern "win smoke" -Quiet)) {
+            Write-Error "quoted --name 'win smoke' was not forwarded through %*"; exit 1
+          }
+          Write-Host "ai-discipline.bat arg-forwarding OK"
