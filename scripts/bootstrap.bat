@@ -23,7 +23,16 @@ goto parse_args
 :parsed_args
 
 set "SCRIPT_DIR=%~dp0"
-for %%I in ("%SCRIPT_DIR%..") do set "FRAMEWORK_ROOT=%%~fI"
+rem 用 pushd/%CD% 取框架根的规范绝对路径(比 `for %%~fI` 稳:真正 cd 进去再读 %CD%)
+pushd "%SCRIPT_DIR%.." || (echo Cannot resolve framework root from %SCRIPT_DIR% 1>&2 & exit /b 1)
+set "FRAMEWORK_ROOT=%CD%"
+popd
+
+rem sanity 闸:框架根必须含 CLAUDE.md,否则后续 copy 全是静默失败、装出残缺目录
+if not exist "%FRAMEWORK_ROOT%\CLAUDE.md" (
+  echo Framework root looks wrong - no CLAUDE.md at "%FRAMEWORK_ROOT%" 1>&2
+  exit /b 1
+)
 
 if not exist "%TARGET_DIR%\" (
   echo Target project does not exist: %TARGET_DIR% 1>&2
