@@ -147,7 +147,7 @@ Memory → 把规则 / 边界 / 踩坑写回 docs/memory/
 
 ## 深入阅读
 
-- [`USAGE.md`](USAGE.md) — 完整 CLI 用法(`start` / `run` / `execute` / `verify` / `report` / `metrics` / `doctor`)、单步调试、CI 集成、已有需求文档的接入。
+- [`USAGE.md`](USAGE.md) — 完整 CLI 用法(`start` / `request` / `run` / `execute` / `verify` / `report` / `config` / `metrics` / `doctor` / `index`)、单步调试、CI 集成、已有需求文档的接入。
 - [`framework/integrated-workflow.md`](framework/integrated-workflow.md) — 一键背后的编排设计。
 - [`framework/framework-assessment.md`](framework/framework-assessment.md) — 架构、当前限制、要证明价值还需要的数据(诚实自评)。
 - [`framework/integration-levels.md`](framework/integration-levels.md) — 工具名归属与商标声明。
