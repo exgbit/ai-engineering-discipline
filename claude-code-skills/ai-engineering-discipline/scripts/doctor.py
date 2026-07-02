@@ -108,6 +108,7 @@ def collect_checks(target: Path) -> list[Check]:
         dir_check(target, "docs/verify"),
         dir_check(target, "docs/memory"),
         dir_check(target, "docs/loops"),
+        dir_check(target, "docs/diagrams"),
         skill_check(target, ".claude/skills/ai-engineering-discipline"),
         skill_check(target, ".claude/skills/ai-spec"),
         skill_check(target, ".claude/skills/ai-loop"),

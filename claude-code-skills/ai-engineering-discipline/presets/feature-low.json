@@ -21,7 +21,8 @@
     "native_tests": true,
     "require_build": false,
     "require_security_scan": false,
-    "require_diff_coverage": true
+    "require_diff_coverage": true,
+    "require_design_diagram": true
   },
   "memory": {
     "local_memory": true,

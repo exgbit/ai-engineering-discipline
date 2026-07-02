@@ -11,7 +11,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from code_analysis import git_changed_files
+
 CACHE_DIR = Path.home() / ".cache" / "codebase-memory-mcp"
+# 与 execute_request.GENERATED 同一标记(不 import,避免与 execute_request 的懒加载形成环)
+GENERATED = "<!-- ai-engineering:generated -->"
 INSTALL_HINT = (
     "codebase-memory-mcp is required but not installed. Build and install it:\n"
     "  git clone https://github.com/win4r/codebase-memory-mcp-pro && cd codebase-memory-mcp-pro\n"
@@ -71,8 +75,11 @@ def detect_changes(target, since="HEAD", depth=2):
         return _static_detect_changes(target, since=since, depth=depth, reason="index_repository failed")
     payload = {"project": idx["project"], "depth": depth, "since": since}
     result = _run(["detect_changes", json.dumps(payload)])
-    if not result or not result.get("impacted_symbols"):
-        return _static_detect_changes(target, since=since, depth=depth, reason="detect_changes returned empty")
+    # 按"过滤后是否还有可用接口"判定,而非原始结果非空:MCP 只看 git diff(不含 untracked),
+    # 新建实现文件时它可能只返回测试/模块符号——过滤后为空,同样要回退到静态分析。
+    if not result or not impact_graph_data(result)["nodes"]:
+        return _static_detect_changes(target, since=since, depth=depth,
+                                      reason="detect_changes returned no usable interfaces")
     return result
 
 
@@ -156,10 +163,15 @@ def _extract_defs(path):
 
 
 def _changed_files(target, since):
+    """改动的业务代码文件。与测试配套门禁同口径(git_changed_files:diff + status,
+    含 untracked/staged)——否则新建文件的功能开发对图谱不可见,必撞 impact 闸。
+    测试文件排除:测试自身是守护者,不是受影响接口。"""
+    files = git_changed_files(Path(target), since or "HEAD")
+    if files is None:
+        return []
     return [
-        line.strip()
-        for line in _git_lines(target, ["diff", "--name-only", since])
-        if line.strip() and _is_code_path(line.strip()) and not _is_generated_or_vendor(line.strip())
+        f for f in files
+        if _is_code_path(f) and not _is_generated_or_vendor(f) and not _looks_like_test(f)
     ]
 
 
@@ -216,6 +228,8 @@ def _static_detect_changes(target, since="HEAD", depth=2, reason="fallback"):
             "changed_files": changed,
             "impacted_count": 0,
             "impacted_symbols": [],
+            "changed_symbols": [],
+            "edges": [],
         }
 
     defs = []
@@ -252,12 +266,25 @@ def _static_detect_changes(target, since="HEAD", depth=2, reason="fallback"):
         {"name": name, "label": "Function", "file": symbol_files.get(name, "")}
         for name in sorted(impacted)
     ]
+    # 导出受影响子图内的调用边(caller → callee),供自动生成 Mermaid 依赖图;
+    # MCP 路径没有等价边数据,只有静态回退能画出真边。
+    edges = sorted(
+        (
+            {"caller": caller, "callee": callee}
+            for callee in impacted
+            for caller in callers_by_callee.get(callee, set())
+            if caller in impacted
+        ),
+        key=lambda e: (e["caller"], e["callee"]),
+    )
     return {
         "status": "fallback",
         "fallback_reason": reason,
         "changed_files": changed,
         "impacted_count": len(symbols),
         "impacted_symbols": symbols,
+        "changed_symbols": sorted(changed_symbols),
+        "edges": edges,
     }
 
 
@@ -267,22 +294,127 @@ def _looks_like_test(path):
 
 
 def impacted_symbol_names(detect_result):
-    """从 detect_changes 结果提取受影响的函数/类/接口名(过滤 Module/File 节点 + 测试文件符号——
-    测试函数是测试本身,不是被影响的接口)。"""
+    """从 detect_changes 结果提取受影响的函数/类/接口名。过滤口径(测试文件、框架产物、
+    label 白名单)只在 impact_graph_data 实现一份,这里取其节点名,保证名单与图节点不漂移。"""
+    return [node["name"] for node in impact_graph_data(detect_result)["nodes"]]
+
+
+def impact_graph_data(detect_result):
+    """从 detect_changes 结果提取受影响接口的节点/边/改动符号——"哪些符号算受影响接口"的
+    过滤口径(测试路径、框架产物、label 白名单)的唯一实现,impacted_symbol_names 也取此结果。
+    节点按 (name, file) 去重:同名符号分属不同文件时都保留,不静默合并。
+    MCP 路径没有边数据时 edges 为空数组,不造假。"""
     if not detect_result:
-        return []
-    names = []
+        return {"nodes": [], "edges": [], "changed": []}
+    nodes = []
+    seen = set()
     for sym in detect_result.get("impacted_symbols") or []:
-        if _looks_like_test(sym.get("file")):
-            continue
-        if _is_framework_artifact_path(sym.get("file")):
+        if _looks_like_test(sym.get("file")) or _is_framework_artifact_path(sym.get("file")):
             continue
         label = str(sym.get("label", ""))
-        if label in {"Function", "Method", "Class", "Interface", "Struct", "Type", "Enum"}:
-            name = sym.get("name")
-            if name:
-                names.append(name)
-    return names
+        if label not in {"Function", "Method", "Class", "Interface", "Struct", "Type", "Enum"}:
+            continue
+        name = sym.get("name")
+        file = str(sym.get("file") or "")
+        if not name or (name, file) in seen:
+            continue
+        seen.add((name, file))
+        nodes.append({"name": name, "file": file, "label": label})
+    names = {node["name"] for node in nodes}
+    edges = [
+        edge for edge in (detect_result.get("edges") or [])
+        if edge.get("caller") in names and edge.get("callee") in names
+    ]
+    changed = [n for n in (detect_result.get("changed_symbols") or []) if n in names]
+    return {"nodes": nodes, "edges": edges, "changed": changed}
+
+
+def _mermaid_node_id(name, index):
+    # Mermaid 节点 ID 对 . / $ 等字符敏感;消毒后加序号保证唯一,显示名保留原符号名
+    clean = re.sub(r"[^0-9A-Za-z_]", "_", str(name))
+    return f"n{index}_{clean}"
+
+
+def _mermaid_label(name):
+    """引号 label 内仍有害的字符转成 Mermaid 实体(泛型 <>、引号、# 等);
+    先转 # 防止把转出的实体二次转义。"""
+    return (
+        str(name)
+        .replace("#", "#35;")
+        .replace('"', "#quot;")
+        .replace("<", "#lt;")
+        .replace(">", "#gt;")
+    )
+
+
+def render_impact_mermaid(nodes, edges, changed, untested):
+    """节点+边 → Mermaid flowchart 文本。有边画调用关系(caller --> callee);
+    无边(MCP 路径)按文件分组只呈现节点。改动符号与无测试守护符号用样式区分。"""
+    node_ids = [(node, _mermaid_node_id(node["name"], i)) for i, node in enumerate(nodes)]
+    ids = {}
+    for node, node_id in node_ids:
+        ids.setdefault(node["name"], node_id)  # 同名节点都画;名字挂的边/样式落到首个
+
+    def node_line(node, node_id, indent="    "):
+        return f'{indent}{node_id}["{_mermaid_label(node["name"])}"]'
+
+    lines = ["flowchart LR"]
+    if edges:
+        lines += [node_line(node, node_id) for node, node_id in node_ids]
+        lines += [f'    {ids[edge["caller"]]} --> {ids[edge["callee"]]}' for edge in edges]
+    else:
+        by_file = {}
+        for node, node_id in node_ids:
+            by_file.setdefault(node.get("file") or "(unknown file)", []).append((node, node_id))
+        for gi, (file, group) in enumerate(sorted(by_file.items())):
+            lines.append(f'    subgraph g{gi}["{_mermaid_label(file)}"]')
+            lines += [node_line(node, node_id, indent="        ") for node, node_id in group]
+            lines.append("    end")
+    lines.append("    classDef changed fill:#ffe0b2,stroke:#e65100,stroke-width:2px;")
+    lines.append("    classDef untested fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px;")
+    changed_ids = [ids[n] for n in changed if n in ids]
+    untested_ids = [ids[n] for n in untested if n in ids]
+    if changed_ids:
+        lines.append(f"    class {','.join(changed_ids)} changed;")
+    if untested_ids:
+        lines.append(f"    class {','.join(untested_ids)} untested;")
+    return "\n".join(lines)
+
+
+def write_impact_diagram(target, impact):
+    """自动生成的 Mermaid 依赖图 → docs/diagrams/<slug>-impact.md(统一图目录,每次刷新)。"""
+    slug = impact.get("slug") or "current-request"
+    out = Path(target) / "docs" / "diagrams"
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"{slug}-impact.md"
+    nodes = impact.get("nodes") or []
+    lines = [
+        GENERATED,
+        f"# Impact Diagram: {slug}",
+        "",
+        "自动生成:本次改动的 blast radius 依赖图(每次 execute 刷新,勿手改;"
+        "设计图请画在同目录的 `-design.md`)。",
+        "橙色 = 本次改动的符号;红色 = 受影响但没有测试守护。",
+        "",
+    ]
+    if nodes:
+        lines += [
+            "```mermaid",
+            render_impact_mermaid(
+                nodes,
+                impact.get("edges") or [],
+                impact.get("changed") or [],
+                impact.get("untested") or [],
+            ),
+            "```",
+        ]
+    else:
+        lines.append(
+            "(no affected interfaces detected — nothing to draw;"
+            "尚无代码改动时本图为空属正常,实现后重跑 verify 会自动刷新)"
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
 
 
 def impacted_untested(target, impacted_names):
@@ -360,14 +492,16 @@ def _is_python_dataclass(target, row):
 
 
 def write_impact_report(target, impact):
-    """把图谱影响分析写成 docs/verify/impact-graph.{md,json}(给 agent 看,据此先补测试)。"""
+    """把图谱影响分析写成 docs/verify/impact-graph.{md,json}(给 agent 看,据此先补测试),
+    并在 docs/diagrams/<slug>-impact.md 生成自动 Mermaid 依赖图。"""
     out = Path(target) / "docs" / "verify"
     out.mkdir(parents=True, exist_ok=True)
     impacted = impact.get("impacted") or []
     untested = impact.get("untested") or []
     ignored = impact.get("ignored_untested") or []
+    diagram = write_impact_diagram(target, impact)
     lines = [
-        "<!-- ai-engineering:generated -->",
+        GENERATED,
         "# Impact Analysis (knowledge-graph blast radius)",
         "",
         "由 codebase-memory 的 detect_changes 算出:本次改动传递性影响到的接口/函数。",
@@ -376,6 +510,10 @@ def write_impact_report(target, impact):
         f"- Affected interfaces: {len(impacted)}",
         f"- Affected **without** a guarding test: {len(untested)}",
         f"- Noise-filtered affected symbols: {len(ignored)}",
+        f"- Diagram: `docs/diagrams/{diagram.name}`(自动生成的 Mermaid 依赖图)",
+        # 分析来源必须透出:静态回退是正则近似,不能让用户误以为拿到的是真图谱结果
+        f"- Source: {impact.get('graph_source') or 'knowledge-graph'}"
+        + (f" — {impact['fallback_reason']}" if impact.get("fallback_reason") else ""),
         "",
         "## Affected but untested (add tests first)",
     ]

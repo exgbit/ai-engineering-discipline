@@ -29,7 +29,14 @@
 
 涉及的模块、接口、数据表、权限、配置、外部依赖。
 
-## 7. Edge Cases
+## 7. Design Diagram
+
+实现前先画关键节点：受影响/新增的类、函数及调用/依赖关系。图统一存 `docs/diagrams/`（Mermaid），此处只留链接：
+
+- 设计图：`docs/diagrams/<name>-design.md`
+- 自动依赖图（框架生成）：`docs/diagrams/<name>-impact.md`
+
+## 8. Edge Cases
 
 - 空数据：
 - 权限不足：
@@ -37,12 +44,12 @@
 - 并发：
 - 回滚：
 
-## 8. Test Plan
+## 9. Test Plan
 
 | Requirement ID | Test Type | Test File / Case | Status |
 |---|---|---|---|
 | R1 | unit |  | todo |
 
-## 9. Open Questions
+## 10. Open Questions
 
 - [ ]

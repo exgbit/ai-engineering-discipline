@@ -923,6 +923,8 @@ def main() -> int:
         result = write_file(target / rel_path, content, args.force, backup=backup)
         counts[result] += 1
         print(f"{result}: {target / rel_path}")
+    # 统一图目录:自动依赖图(-impact.md)与设计图(-design.md)的归宿;无模板文件,显式建目录
+    (target / "docs" / "diagrams").mkdir(parents=True, exist_ok=True)
     skill_counts = install_skill_dirs(target, args.force)
 
     print()

@@ -19,7 +19,8 @@
     "severity": "warning",
     "native_tests": true,
     "require_build": true,
-    "require_security_scan": true
+    "require_security_scan": true,
+    "require_design_diagram": false
   },
   "memory": {
     "local_memory": true,

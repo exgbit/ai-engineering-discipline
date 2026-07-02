@@ -98,6 +98,7 @@ mkdir -p \
   "$TARGET_DIR/docs/verify" \
   "$TARGET_DIR/docs/memory" \
   "$TARGET_DIR/docs/loops" \
+  "$TARGET_DIR/docs/diagrams" \
   "$TARGET_DIR/.github" \
   "$TARGET_DIR/.github/workflows" \
   "$TARGET_DIR/.claude/commands" \

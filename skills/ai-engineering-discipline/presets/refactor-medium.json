@@ -20,7 +20,8 @@
     "native_tests": true,
     "require_build": true,
     "require_regression_tests": true,
-    "require_diff_coverage": true
+    "require_diff_coverage": true,
+    "require_design_diagram": true
   },
   "memory": {
     "local_memory": true,

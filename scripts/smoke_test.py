@@ -132,6 +132,28 @@ def main() -> int:
             "node:test (npm run test) must launch and pass on every OS including Windows",
         )
 
+        # 7c) 设计图先行门禁(feature preset require_design_diagram=true):占位已生成且未填 →
+        #     blocking;填上 Mermaid 后重跑 → 该阻断消失。自动依赖图(-impact.md)依赖知识图谱/
+        #     impact 分析,主流程 AI_DISCIPLINE_GRAPH_OPTIONAL=1 下不生成,由单测覆盖。
+        dd = target / "docs" / "diagrams" / "smoke-design.md"
+        check(dd.exists(), "design diagram placeholder not generated under docs/diagrams/")
+        check(
+            any("design diagram incomplete" in b for b in vr["blocking_reasons"]),
+            f"unfilled design diagram must block a feature task; got {vr['blocking_reasons']}",
+        )
+        dd.write_text(
+            "# Design Diagram: smoke\n\n```mermaid\nflowchart LR\n    submitOrder --> orderStore\n```\n",
+            encoding="utf-8",
+        )
+        # 必须带 --run-native-checks:verification-results.json 只在真正跑了检查时重写
+        r = run_cli("execute", str(target), "--skip-init", "--run-native-checks")
+        check(r.returncode == 0, f"execute after filling diagram exit={r.returncode}\n{r.stderr}")
+        vr_dd = json.loads((target / "docs" / "verify" / "verification-results.json").read_text(encoding="utf-8"))
+        check(
+            not any("design diagram" in b for b in vr_dd["blocking_reasons"]),
+            f"filled design diagram must clear the block; got {vr_dd['blocking_reasons']}",
+        )
+
         # 8) 硬强制锁(R4):非 opt-out + 知识图谱不可见 → execute 门禁必须 blocking "codebase-memory required"。
         #    CI 本就没装;本地从 PATH/HOME 隔离掉 ~/.local/bin 模拟没装。靠 blocking_reasons 文本断言
         #    (退出码会被其它冗余闸掩盖)。posix only:env 隔离跨平台差异大,门禁逻辑本身平台无关。

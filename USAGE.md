@@ -107,6 +107,7 @@ Not covered yet:
 框架的验证门禁是**动真格**的,不是走形式。以下情况会让"完成"亮红灯(`NOT DONE YET`):
 
 - **改了代码但没加/改测试**(新功能、修 bug、重构、迁移)→ 拦。光改实现不写测试过不了;修 bug 时,测试还必须真覆盖你改的函数。
+- **设计图没画**(新功能、重构、迁移)→ 拦。框架在 `docs/diagrams/` 生成设计图占位(`<名字>-design.md`),AI 要先用 Mermaid 画出本次改动的关键节点(可从同目录自动生成的 `<名字>-impact.md` 依赖图起步)才放行编码。
 - **测试失败、或安全扫描发现问题** → 拦。
 - **跑不出可用的测试套件、且规格的回归计划也没填** → 拦。注意:**只要全套测试真跑且通过,就算回归过关**,不用再手填回归表(全套绿 = 旧功能没被破坏)。
 
@@ -181,6 +182,8 @@ python $S config .          # 查看当前配置
 | `docs/ai-engineering/SUMMARY.md` | **给你看的大白话状态**(最重要) |
 | `docs/ai-engineering/current-request.md` | 当前这次需求的解析结果 |
 | `docs/specs/<名字>.md` | 规格(需求/影响/验收,AI 填) |
+| `docs/diagrams/<名字>-design.md` | **设计图**(AI 用 Mermaid 画关键节点,编码前必填) |
+| `docs/diagrams/<名字>-impact.md` | 自动生成的 Mermaid 依赖图(改动 blast radius) |
 | `docs/loops/<名字>.md` | 这次工作的步骤/状态机 |
 | `docs/verify/verification-results.json` / `.md` | 验证结果(技术细节) |
 | `docs/verify/test-matrix.md` | 需求 ↔ 测试映射 + 回归矩阵 |
