@@ -226,7 +226,8 @@ def _coverage_js(target: Path):
             data = json.loads(final.read_text(encoding="utf-8"))
         except ValueError:
             return None, "coverage-final.json parse error"
-    return _parse_istanbul(data, target), "istanbul"
+    # tool 字段报真实运行器(c8/nyc),istanbul 只是它们输出的 JSON 格式名,直接报会让用户困惑
+    return _parse_istanbul(data, target), f"{runner[0]} (istanbul json)"
 
 
 def _parse_jacoco(xml_text: str):

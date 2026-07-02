@@ -263,12 +263,24 @@ def count_generated_actions(target: Path) -> int:
     return sum(1 for line in report.splitlines() if line.startswith("- write:") or line.startswith("- update:"))
 
 
+# 框架 bootstrap 装进根目录的协议文件 + 每次运行自产的 data/ 累积文件,
+# 与 docs/.claude 等一样不算业务改动(代价:用户自己改这两个协议文件也不计入,可接受)
+FRAMEWORK_DATA_FILES = {
+    "CLAUDE.md", "AGENTS.md",
+    "data/run-stats.jsonl", "data/run-summary.md",
+    "data/issues-log.md", "data/test-index-history.jsonl",
+}
+
+
 def git_changed_files(target: Path) -> int | None:
+    """业务改动文件数:排除框架自产产物(docs/、.claude/ 等与 data/ 累积文件),
+    否则 pilot 指标被二三十个生成文件淹没,反映不出真实变更规模。"""
     if not (target / ".git").exists():
         return None
     try:
         result = subprocess.run(
-            ["git", "-C", str(target), "status", "--short"],
+            # -uall:整目录 untracked 时展开成逐文件,否则 "?? data/" 这类目录行无法按文件名排除
+            ["git", "-C", str(target), "status", "--short", "--untracked-files=all"],
             text=True,
             capture_output=True,
         )
@@ -276,7 +288,18 @@ def git_changed_files(target: Path) -> int | None:
         return None
     if result.returncode != 0:
         return None
-    return len([line for line in result.stdout.splitlines() if line.strip()])
+    from code_analysis import is_framework_artifact
+    count = 0
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip().strip('"')
+        if " -> " in path:  # rename 行取新路径
+            path = path.split(" -> ", 1)[1].strip().strip('"')
+        if is_framework_artifact(path) or path in FRAMEWORK_DATA_FILES:
+            continue
+        count += 1
+    return count
 
 
 def artifact_exists(target: Path, rel_path: str) -> bool:

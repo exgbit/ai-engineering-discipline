@@ -864,6 +864,9 @@ def skill_source_parent(current_skill_root: Path, flavor: str) -> Path | None:
 def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
     current_skill_root = Path(__file__).resolve().parents[1]
     counts = {"write": 0, "skip": 0, "missing": 0}
+    # 已装好的目标项目里,self-copy 与 cross-flavor 是每次 run 的常态路径:聚合计数,不逐行刷长路径
+    self_copies = 0
+    cross_flavor = 0
     destinations = {
         "claude": target / ".claude" / "skills",
         "codex": target / ".codex" / "skills",
@@ -883,7 +886,7 @@ def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
             # 误解析成对方副本,覆盖本 flavor 会丢失副本独有文件(如 codex 的 agents/openai.yaml)。
             if other_flavor_dir in src.resolve().parts:
                 counts["missing"] += 1
-                print(f"skip cross-flavor source for {flavor}: {src}")
+                cross_flavor += 1
                 continue
             if not (src / "SKILL.md").exists():
                 counts["missing"] += 1
@@ -891,11 +894,10 @@ def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
                 continue
             if src.resolve() == dst.resolve():
                 counts["skip"] += 1
-                print(f"skip skill self-copy: {dst}")
+                self_copies += 1
                 continue
             if dst.exists() and not force:
-                counts["skip"] += 1
-                print(f"skip skill: {dst}")
+                counts["skip"] += 1  # 常态 skip 聚合计数(main 末尾统一打),异常类 skip 仍逐行打
                 continue
             dst.parent.mkdir(parents=True, exist_ok=True)
             if dst.exists() and force:
@@ -903,6 +905,10 @@ def install_skill_dirs(target: Path, force: bool) -> dict[str, int]:
             shutil.copytree(src, dst, dirs_exist_ok=True, ignore=ignore)
             counts["write"] += 1
             print(f"write skill: {dst}")
+    if self_copies:
+        print(f"skipped {self_copies} skill self-copy source(s)")
+    if cross_flavor:
+        print(f"skipped {cross_flavor} cross-flavor skill source(s)")
     return counts
 
 
@@ -922,7 +928,11 @@ def main() -> int:
         backup = Path(rel_path).name in BACKUP_ON_FORCE
         result = write_file(target / rel_path, content, args.force, backup=backup)
         counts[result] += 1
-        print(f"{result}: {target / rel_path}")
+        # 已存在文件的 skip 聚合成末尾一行计数,否则重复安装场景每次刷十几行噪音
+        if result != "skip":
+            print(f"{result}: {target / rel_path}")
+    if counts["skip"]:
+        print(f"skipped {counts['skip']} existing framework file(s)")
     # 统一图目录:自动依赖图(-impact.md)与设计图(-design.md)的归宿;无模板文件,显式建目录
     (target / "docs" / "diagrams").mkdir(parents=True, exist_ok=True)
     skill_counts = install_skill_dirs(target, args.force)

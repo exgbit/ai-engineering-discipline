@@ -520,6 +520,8 @@ If a code knowledge-graph MCP is configured (the `impact` layer in `adapters/def
 ## Regression Plan
 
 Map existing behavior that could break because of this change.
+Also check existing tests whose assertions contradict the new requirement — a behavior
+change may require rewriting an old test, not keeping it green as-is.
 
 | Existing Behavior | Related Module / API | Regression Check | Required |
 |---|---|---|---|
@@ -852,6 +854,30 @@ def native_test_outcome(native: list[CommandResult]) -> str:
     if all(i.status == "passed" for i in test_items):
         return "passed"
     return "none"  # 部分/全部 skipped(工具没装)→ 不能宣称套件全绿
+
+
+def changed_symbols_for_graph(target: Path, base_ref: str, node_names: set[str]) -> list[str]:
+    """MCP 路径的 detect 结果不带改动符号:用测试门禁同款的静态符号提取兜底,
+    让 impact 图能标出"哪些节点是本次改动"(否则图例声称的橙色永远不出现)。"""
+    changed = git_changed_files(target, base_ref) or []
+    code_changed = [f for f in changed if is_code_file(f) and not is_test_file(f) and not is_framework_artifact(f)]
+    if not code_changed:
+        return []
+    return sorted(s for s in changed_code_symbols(target, code_changed, base_ref) if s in node_names)
+
+
+def red_phase_summary(target: Path) -> dict[str, object] | None:
+    """红灯档案摘要(docs/verify/red-phase-results.json);没记录过返回 None。"""
+    path = target / "docs" / "verify" / "red-phase-results.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return {
+        "observed": bool(data.get("red_phase_observed")),
+        "created": data.get("created"),
+        "evidence": "docs/verify/red-phase-results.md",
+    }
 
 
 def verification_gate_details(
@@ -1560,6 +1586,7 @@ def write_verification_results(
         # 把整体压成 pending,否则与 can_merge=true 自相矛盾、误导采用方以为验证没跑完。
         overall_status = "verified"
         overall_reason = "All required checks passed and required coverage is complete."
+    red_phase = red_phase_summary(target)
     payload: dict[str, object] = {
         "created": now,
         "request": {
@@ -1581,6 +1608,8 @@ def write_verification_results(
             {k: v for k, v in impact.items() if k not in {"nodes", "edges", "changed"}}
             if impact else impact
         ),
+        # TDD 红→绿证据链:红灯档案(若记录过)的摘要挂进终态结果,不让证据断在中间产物里
+        "red_phase": red_phase,
     }
     write_json_artifact(verify_dir / "verification-results.json", payload, actions)
 
@@ -1595,6 +1624,10 @@ def write_verification_results(
         f"- Reason: {overall_reason}",
         f"- Can merge (no blocking issues): `{str(gate_details['can_merge']).lower()}`",
         f"- Fully verified (all required checks covered): `{str(gate_details.get('coverage_complete', False)).lower()}`",
+        *(
+            [f"- TDD red phase: {'recorded (tests failed before implementation)' if red_phase.get('observed') else 'attempted but tests did not fail'} — see `docs/verify/red-phase-results.md`"]
+            if red_phase else []
+        ),
         f"- Blocking reasons: `{', '.join(gate_details['blocking_reasons']) if gate_details['blocking_reasons'] else 'none'}`",
         f"- Uncovered required checks (tool missing / not run): `{', '.join(gate_details.get('uncovered_checks', [])) if gate_details.get('uncovered_checks') else 'none'}`",
         f"- Needs human verification: `{', '.join(gate_details.get('needs_human_checks', [])) if gate_details.get('needs_human_checks') else 'none'}`",
@@ -2040,6 +2073,17 @@ def write_memory_candidates(
             "- Verification to add next time: rerun `/ai-verify` after fixing skipped or blocked gates.",
             "",
         ])
+    elif (red := red_phase_summary(target)) and red.get("observed"):
+        # 修 bug 且留了红灯证据 = 最该沉淀 pitfall 的时刻:把复现档案转成候选,别让证据白留
+        candidate_sections.extend([
+            "## Candidate Pitfall",
+            "",
+            "- Status: `needs-review`",
+            f"- Context: `{request.name}` recorded a failing (red) reproduction before the fix.",
+            f"- Evidence: `{red.get('evidence')}` (created {red.get('created')})",
+            "- Rule / Lesson: turn the reproduction into a durable pitfall entry in `docs/memory/pitfalls.md` — what failed, why, and which test now guards it.",
+            "",
+        ])
     else:
         candidate_sections.extend([
             "## Candidate Pitfall",
@@ -2289,6 +2333,10 @@ def main() -> int:
             # 画图数据 nodes/edges/changed 与受影响接口名同源同口径(静态回退有真边;MCP 路径 edges 为空)
             graph_data = impact_graph_data(detect)
             names = [node["name"] for node in graph_data["nodes"]]
+            if not graph_data["changed"] and names:
+                graph_data["changed"] = changed_symbols_for_graph(
+                    target, git_diff_base(request), set(names)
+                )
             is_fallback = (detect or {}).get("status") == "fallback"
             impact = {
                 "available": True,
@@ -2302,10 +2350,14 @@ def main() -> int:
                 **graph_data,
             }
             write_impact_report(target, impact)
-            actions.append(
-                f"impact-graph: {len(names)} affected, {len(impact['untested'])} untested"
-                f" (via {impact['graph_source']})"
-            )
+            if not names and not (detect or {}).get("changed_files"):
+                # 尚无代码改动:别打 "via static-fallback" 让人误以为图谱故障
+                actions.append("impact-graph: no code changes yet — nothing to analyze")
+            else:
+                actions.append(
+                    f"impact-graph: {len(names)} affected, {len(impact['untested'])} untested"
+                    f" (via {impact['graph_source']})"
+                )
     gate = write_verification_results(target, request, semgrep_result, native_results, actions, diff_cov, impact)
     update_test_matrix_with_results(target, request, semgrep_result, native_results, actions, diff_cov, impact)
     write_loop_run_log(target, request, semgrep_result, native_results, actions, diff_cov, impact)
