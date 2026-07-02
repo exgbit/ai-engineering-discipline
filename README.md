@@ -6,6 +6,24 @@
 
 ---
 
+## 主流程一图看懂(UML 活动图)
+
+```mermaid
+flowchart TD
+    U["用户:一句大白话需求<br/>(/ai-build 或 --task/--risk + 需求文档)"] --> R["① Request<br/>preset(task+risk) 解析底层参数<br/>写 managed request,记录 git 基线"]
+    R --> S["② Spec + 设计图<br/>AI 读代码填规格(影响分析/耦合约束/回归计划)<br/>在 docs/diagrams/ 画 Mermaid 设计图<br/>框架自动生成 blast-radius 依赖图作起点"]
+    S --> T["③ 测试先行<br/>按需求写失败测试<br/>--record-red-phase 留红灯证据"]
+    T --> I["④ 小步实现<br/>范围受 loop 约束,禁越界重构"]
+    I --> V{"⑤ Verify 门禁(脚本确定性判定)<br/>全量测试绿 · 测试须引用改动符号<br/>diff-coverage 改动行被执行<br/>知识图谱受影响接口 ∩ 测试盲区 = 空<br/>设计图已画 · spec 无 TBD · 可选 Semgrep"}
+    V -- "blocked:原因回显,回去补" --> T
+    V -- "verified" --> M["⑥ Memory 沉淀<br/>规则/踩坑写 docs/memory/<br/>红灯证据自动转 pitfall 候选"]
+    M --> O["SUMMARY.md 大白话完成信号<br/>data/ 运行数据自动累积"]
+```
+
+**中文说明**:整个流程的关键在 ⑤——"完成"不由 AI 自己宣称,而由框架脚本从测试、覆盖率、影响分析等**可验证证据**里算出来:`can_merge`(有无阻断)与 `coverage_complete`(该跑的是否都跑了)两个信号分开如实给。①②③④⑥ 中的智力活(读代码、填规格、画图、写测试)由 AI agent 完成,框架负责编排顺序、传递产物、把关放行;任何一步不达标,⑤ 会给出**具体到符号名的阻断原因**(如"refund_summary 受影响但没有测试守护"),AI 按原因迭代直到全绿。上图本身就是本框架"设计图先行"环节所要求的那种 Mermaid 图。
+
+---
+
 ## 它的作用
 
 AI 写代码最大的信任缺口是:**agent 说"做好了",但没有可信证据**。它容易不写规格直接生成、拿"看起来合理"当验证、改完不写测试、知识不沉淀。
