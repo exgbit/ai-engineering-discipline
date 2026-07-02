@@ -6,16 +6,27 @@
 
 ---
 
-## 它解决什么
+## 它的作用
 
 AI 写代码最大的信任缺口是:**agent 说"做好了",但没有可信证据**。它容易不写规格直接生成、拿"看起来合理"当验证、改完不写测试、知识不沉淀。
 
-这个框架用**机制**(而不是更用力地提示 agent)堵住这些:
+这个框架的作用就是用**机制**(而不是更用力地提示 agent)堵住这些:
 
 - **先补测试,再写实现,最后全量测试必须绿**——新项目按需求先建测试/单元测试;已有项目先用知识图谱定位受影响功能点/接口并补必要测试;改了业务代码但没有配套测试、测试不相关、测试命令不可运行、改动行未被测试执行,门禁都不放行。支持 Python / Go / Java / JS / TS,空测试、测错函数都拦得住。
+- **实现前先画设计图**——feature / refactor / migration 任务要求先在 `docs/diagrams/` 用 Mermaid 画出关键节点(受影响/新增的类、函数及调用关系)才放行编码;框架同时自动生成改动的 blast-radius 依赖图(改动符号标橙、无测试守护标红)作起点。
 - **完成信号由框架脚本生成,不靠 agent 自律**——即使 agent 嘴上说"完成了",`SUMMARY.md` 也会如实写"哪些过了、哪些没过、哪些没跑",而且是大白话。
 - **动手前先有规格,且影响分析由知识图谱算**——codebase-memory 算出改动会波及的**全部**接口,交叉测试盲区,把"受影响但没测"的列出来要求先补测试,再动手。
-- **踩坑和规则沉淀到 `docs/memory/`**,下次 agent 和人都能用。
+- **踩坑和规则沉淀到 `docs/memory/`**,下次 agent 和人都能用;修 bug 留下的红灯复现证据会自动转成待沉淀的 pitfall 候选。
+
+## 核心优点
+
+- **完成信号可信**:can_merge / coverage_complete 由确定性脚本从测试、覆盖率、影响分析算出,AI 的解释不算证据;门禁失败时原因直接回显,大白话摘要一眼可读。
+- **证据链完整**:TDD 红灯留档(`--record-red-phase`)→ diff-coverage 改动行执行核对 → 影响图 → 验证结果,每一环都落盘、可审计,红→绿的完整链条在终态报告可见。
+- **一句话即可用**:用户只给 `--task`/`--risk`/需求文档(或一句大白话),Spec/Loop/Verify/Memory 的底层参数由 preset 解析,不需要学四套工具。
+- **诚实降级**:知识图谱不可用会回退静态分析并在产物里标注来源(`knowledge-graph` / `static-fallback`);工具缺失记 skipped/uncovered 而非假装通过。
+- **跨平台**:每个命令 `.sh`/`.bat`/`.py` 三套,CI 在 macOS / Linux / Windows 三平台矩阵验证。
+- **实证数据自动累积**:每次验证的统计与问题台账写进目标项目 `data/`,框架用得越多,真实效果数据越全。
+- **经过实战检验**:三轮独立 agent 实测(Python 新功能 / Python 改既有代码 / JS 修 bug),暴露的问题全部修复闭环,核心门禁连续多轮零误拦。
 
 ---
 
@@ -125,6 +136,28 @@ Memory → 把规则 / 边界 / 踩坑写回 docs/memory/
 
 ---
 
+## 仓库结构
+
+```text
+ai-engineering-discipline/
+├── scripts/               # 唯一权威源:统一 CLI(ai_discipline.py)与各步脚本(.sh/.bat/.py 三套)
+├── presets/               # task+risk 预设:隐藏底层框架参数(enforced/advisory 分档见 presets/README.md)
+├── templates/             # 装进目标项目的模板(spec / verify-checklist / memory-entry / loop / pr)
+├── framework/             # 方法论与落地文档(操作模型、loop 工程、试点手册、诚实自评)
+├── adapters/              # 四件套默认选择(default-stack.json)与适配器说明
+├── claude-code-commands/  # 目标项目的 slash 命令(/ai-start /ai-build /ai-verify ...)
+├── claude-code-skills/    # Claude Code skill 副本(由 sync_skills.py 从顶层自动生成,勿手改)
+├── skills/                # Codex skill 副本(同上,自动生成)
+├── examples/              # loop runbook / test matrix / 项目记忆示例
+├── data/                  # 指标 schema 与合成示例数据(对外引用前换成真实 pilot 数据)
+├── tests/                 # 门禁与核心逻辑的单元测试(unittest)
+└── .github/workflows/     # 三平台冒烟、Windows bat、lint、副本同步校验
+```
+
+改 `scripts/`、`presets/`、`templates/` 后跑 `python scripts/sync_skills.py` 重新生成两份 skill 副本;装进目标项目后,产物统一落在目标项目的 `docs/`(specs / diagrams / verify / memory / loops / reports)与 `data/` 下。
+
+---
+
 ## 诚实的能力边界
 
 这个框架刻意只承诺它能兑现的:
@@ -163,7 +196,7 @@ Memory → 把规则 / 边界 / 踩坑写回 docs/memory/
 
 ## 作者
 
-果比AI · [guobi.ai](https://guobi.ai)
+作者:果比AI · [guobi.ai](https://guobi.ai)
 
 ## License
 
